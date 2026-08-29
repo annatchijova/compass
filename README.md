@@ -42,6 +42,20 @@ The three mandatory boxes, all checked:
 > returns the same state seal (`8fc1128…`) as the offline backend — the model
 > changed the words, not a single sealed number. That is the whole thesis.
 
+### Anyone can use it — judges and owner alike
+
+The hosted service is multi-user with no login. Every browser gets its own
+**isolated compass**, keyed by an opaque `X-Compass-User` id (a per-browser
+session key, or one you pin to return to yours). Each id maps to its own
+sealed SQLite base, seeded with a starter scenario so you land on something
+you can immediately explore and modify without touching anyone else's. Each
+base is snapshotted to Cloud Storage after every write and restored on
+access, so your compass survives cold starts and redeploys. The id is
+validated against a strict allowlist (`^[A-Za-z0-9_-]{1,64}$`) before it ever
+touches a path. If storage is unreachable the service degrades to local-only
+and says so on `/health` — a persistence failure never destroys a computed
+result.
+
 ### Why this is an *architecturally disciplined* agent
 
 The differentiator is not that an agent talks; it is **where the agent is
@@ -183,8 +197,10 @@ and the two Gemini-3.x gotchas). Short version:
 
 ```bash
 gcloud run deploy compass --source . --region us-central1 --allow-unauthenticated \
+  --session-affinity --min-instances 1 \
   --set-env-vars COMPASS_BACKEND=gemini,GOOGLE_GENAI_USE_VERTEXAI=TRUE,\
-GOOGLE_CLOUD_PROJECT=vigia-497422,GOOGLE_CLOUD_LOCATION=global
+GOOGLE_CLOUD_PROJECT=vigia-497422,GOOGLE_CLOUD_LOCATION=global,\
+COMPASS_GCS_BUCKET=compass-user-data-vigia-497422
 ```
 
 ---
@@ -229,9 +245,13 @@ A known limitation is an asset. What this project does **not** yet claim:
 - **The engine weights are PROVISIONAL** (`decision_record` #1 records the
   reopening condition: an audit with real data). They unblock the skeleton;
   they are not tuned.
-- **Cloud Run local disk is ephemeral.** The hosted demo seeds on boot;
-  durable state across cold starts would need a mounted volume or a managed
-  store. `/health` reports the durability honestly.
+- **Persistence is snapshot-based, single-writer.** Per-user SQLite lives on
+  local disk and is snapshotted to Cloud Storage after each write (restored on
+  access). It is sized for one writer per compass (a person clicking through
+  their own cycle) with Cloud Run session affinity; it is not a concurrent
+  multi-writer store, and two instances racing on one id is last-writer-wins.
+  Honest for the demo, reported on `/health`; a real multi-writer deployment
+  would move to a managed database.
 - **A writer with total DB access can rewrite history from genesis.** The
   chain makes tampering *detectable* against a verifier holding a prior tail
   hash, not impossible. Anchoring that hash off-machine is an open decision.

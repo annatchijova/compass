@@ -24,7 +24,22 @@ model changes only the narration.
 PROJECT=vigia-497422    # reuse the existing billing-enabled project
 gcloud services enable run.googleapis.com aiplatform.googleapis.com \
     cloudbuild.googleapis.com artifactregistry.googleapis.com \
-    --project $PROJECT
+    storage.googleapis.com --project $PROJECT
+```
+
+### Per-user persistence bucket
+
+Each user's isolated SQLite base is snapshotted to Cloud Storage (survives
+cold starts). Create the bucket and let the Cloud Run runtime service account
+read/write it:
+
+```bash
+BUCKET=gs://compass-user-data-$PROJECT
+SA=1028999311218-compute@developer.gserviceaccount.com   # Cloud Run runtime SA
+gcloud storage buckets create $BUCKET --project $PROJECT \
+    --location us-central1 --uniform-bucket-level-access
+gcloud storage buckets add-iam-policy-binding $BUCKET --project $PROJECT \
+    --member="serviceAccount:$SA" --role="roles/storage.objectAdmin"
 ```
 
 ## Deploy the backend API
@@ -35,14 +50,19 @@ gcloud run deploy compass \
   --region us-central1 \
   --allow-unauthenticated \
   --memory 512Mi --cpu 1 --timeout 300 \
+  --session-affinity --min-instances 1 --max-instances 4 \
   --set-env-vars COMPASS_BACKEND=gemini,GOOGLE_GENAI_USE_VERTEXAI=TRUE,\
 GOOGLE_CLOUD_PROJECT=vigia-497422,GOOGLE_CLOUD_LOCATION=global,\
-COMPASS_MODEL=gemini-2.5-flash \
+COMPASS_MODEL=gemini-2.5-flash,COMPASS_GCS_BUCKET=compass-user-data-vigia-497422 \
   --project vigia-497422
 ```
 
-To run the hosted demo **without** a model (still shows the full deterministic
-cycle), drop the env vars — the container defaults to `COMPASS_BACKEND=demo`.
+`--session-affinity` keeps a browser on one instance (so its per-user SQLite
+writes and GCS snapshots do not race across instances). To run the hosted demo
+**without** a model (still shows the full deterministic cycle), drop the Gemini
+env vars — the container defaults to `COMPASS_BACKEND=demo`. Drop
+`COMPASS_GCS_BUCKET` to run without persistence (local-only, reported on
+`/health`).
 
 ### Gotcha 1 — Vertex location for Gemini 3.x is `global`, not a region
 

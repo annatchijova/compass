@@ -51,7 +51,10 @@ before the agent ever sees it.
 - **Google ADK** — `compass.agent.root_agent`, a tool-bounded agent.
 - **Cloud Run** — hosts the FastAPI backend; Vertex serves Gemini through the
   service identity (no key stored).
-- Python stdlib deterministic core + SQLite; **Next.js** frontend.
+- **Cloud Storage** — per-user isolated SQLite bases snapshotted for durability
+  (multi-user with no login: every browser gets its own sealed compass).
+- Python stdlib deterministic core + SQLite; **Next.js** frontend (bilingual
+  EN/ES, judge quick-tour + example inputs).
 
 ## The architectural test we are proud of
 

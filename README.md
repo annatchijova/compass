@@ -144,11 +144,15 @@ no credential and no cloud, using a role-aware `demo` backend.
 ### 1. The core cycle (CLI, offline)
 
 ```bash
-python3 -m pytest                          # 119 tests
-PYTHONPATH=src python3 -m compass init     # then: person, hyp, evidence, link,
-                                           # exp, recompute, compass, traj, verify ...
+python3 -m pytest                          # 119 tests — see "Tests" for the extras
+PYTHONPATH=src python3 -m compass init     # then: person, evidence, hyp, link, exp,
+                                           # observe, reflect, recompute, compass,
+                                           # traj, verify
 python3 tools/verify_chain.py compass.db   # independent, stdlib-only verifier
 ```
+
+The CLI's own output strings are still Spanish-only (the API, the narrator and
+the web app are bilingual EN/ES).
 
 **Trajectories (vocational fit).** "What to dedicate yourself to" is treated as
 a *fit* between demonstrated capabilities and what a path requires — never a
@@ -167,7 +171,7 @@ confirming the audit chain does not require trusting the code that wrote it.
 ### 2. The API + web app (local)
 
 ```bash
-pip install '.[api]'                        # fastapi + uvicorn
+pip install '.[api]'                        # fastapi + uvicorn + google-cloud-storage
 COMPASS_BACKEND=demo COMPASS_DB=/tmp/compass.db \
   uvicorn compass.api:app --reload --port 8080
 # → http://localhost:8080/health  and  /docs
@@ -180,6 +184,11 @@ immediately. Then, in `frontend/`:
 cd frontend && npm install
 NEXT_PUBLIC_API_URL=http://localhost:8080 npm run dev   # → http://localhost:3000
 ```
+
+The web app covers the evidence → hypothesis → experiment cycle, the audit
+chain (linkage, integrity *and* content), and the three LLM roles
+(`extract` / `abduce` / `narrate`). **Trajectories are CLI + API only so far** —
+there is no trajectory screen in the frontend yet.
 
 ### 3. With the real Gemini model
 
@@ -211,7 +220,7 @@ gcloud run deploy compass --source . --region us-central1 --allow-unauthenticate
   --session-affinity --min-instances 1 \
   --set-env-vars COMPASS_BACKEND=gemini,GOOGLE_GENAI_USE_VERTEXAI=TRUE,\
 GOOGLE_CLOUD_PROJECT=vigia-497422,GOOGLE_CLOUD_LOCATION=global,\
-COMPASS_GCS_BUCKET=compass-user-data-vigia-497422
+COMPASS_MODEL=gemini-2.5-flash,COMPASS_GCS_BUCKET=compass-user-data-vigia-497422
 ```
 
 ---
@@ -235,6 +244,14 @@ COMPASS_GCS_BUCKET=compass-user-data-vigia-497422
   before every append, and linkage/integrity reported *separately* (never
   collapsed into one boolean). Deleting content leaves an honest, visible
   tombstone in the chain, never a silent gap.
+- **Referenced content is bound to the chain, not to a mutable column.**
+  `verify_content` re-hashes live evidence against the `content_hashes` sealed
+  *inside* each chain envelope, so editing the text and its `content_hash`
+  together is still detected (Red Team Round 1, finding D1). Reported as a
+  third, separate signal: `content_ok` on `/api/chain`, `chain_content_ok` on
+  `/health`, and `contenido_ok` in `tools/verify_chain.py`.
+- **The narrator cannot dress the index as a probability.** `validate_prose`
+  fail-closed rejects any percentage in the narration before it is stored.
 - **Determinism is proven, not asserted:** the same input produces the same
   seal bit-for-bit across fresh processes with a different `PYTHONHASHSEED`.
 
@@ -244,15 +261,21 @@ COMPASS_GCS_BUCKET=compass-user-data-vigia-497422
 
 A known limitation is an asset. What this project does **not** yet claim:
 
-- **Gemini is not tested live in this environment.** The contract is tested
-  via the offline backends; the first real call may surface response-shape
-  differences. (Same honesty the skeleton always kept about the
-  Anthropic/Ollama backends.)
+- **Gemini's live coverage is one model, one transport, exercised by hand.**
+  Gemini *has* now run in production (`gemini-2.5-flash` on Vertex, same seal
+  as the offline backend), but no automated test makes a real call: the suite
+  proves the contract against the offline backends only. Another model,
+  region, or SDK version could still surface response-shape differences.
+  (Same honesty the skeleton always kept about the Anthropic/Ollama backends.)
 - **The prompts (extractor/abductor/narrator) are v0, un-audited
   adversarially.** A model captured by a persuasive narrative can propose
   biased *candidates* — the structural mitigation is that nothing enters the
   ledger without the person's validation and no number leaves the model, but
   the quality of proposals is not measured.
+- **The prose guard is syntactic, not semantic** (Red Team Round 1, finding A,
+  partially fixed). `validate_prose` rejects percentages deterministically; it
+  does not catch a smuggled certainty claim in words ("essentially certain").
+  A semantic audit of the narration is v2.
 - **The engine weights are PROVISIONAL** (`decision_record` #1 records the
   reopening condition: an audit with real data). They unblock the skeleton;
   they are not tuned.
@@ -273,13 +296,49 @@ A known limitation is an asset. What this project does **not** yet claim:
   chain makes tampering *detectable* against a verifier holding a prior tail
   hash, not impossible. Anchoring that hash off-machine is an open decision.
 
+The adversarial audit behind several of these — five findings, their
+falsification attempts, and what was fixed versus mitigated — is in
+[`docs/RED_TEAM_ROUND1.md`](docs/RED_TEAM_ROUND1.md).
+
+---
+
+## Still open
+
+Not blind spots (those are above, and are properties of the design) — this is
+work that is simply not done yet.
+
+| # | Open item | Where it bites |
+|---|---|---|
+| 1 | **Demo video not recorded.** | README and `docs/SUBMISSION.md` both still say *to be filled*. |
+| 2 | **Trajectories have no UI.** `traj add/req/fit/discriminate` exist in the CLI and under `/api/trajectories`, but the Next.js app never calls them. | Vocational fit — the design doc's §5/§7 — is invisible to anyone who only opens the web app. |
+| 3 | **`compass verify` (CLI) reports only linkage + integrity.** Content binding is checked by `tools/verify_chain.py`, `/api/chain` and `/health`, but not by the in-CLI verifier. | A CLI-only user gets a `True/True` that does not cover the D1 tamper class. |
+| 4 | **The CLI speaks Spanish only.** The API, narrator and frontend are bilingual EN/ES. | Mixed-language experience for anyone driving the core from a terminal. |
+| 5 | **Engine weights still provisional.** `decision_record` #1 names the reopening condition: an audit against real data. | Every index is "accumulation under v1 rules", not a tuned measurement. |
+| 6 | **Narration is not semantically audited** (Red Team finding A, partial). | A certainty claim in words can still slip past the percentage guard. |
+| 7 | **Tail hash is not anchored off-machine.** | Tampering is detectable only by a verifier that already holds a prior tail. |
+| 8 | **No self-perception-vs-data confrontation yet.** | The design's confrontation step (with a deliberately careful threshold) is unimplemented. |
+
 ---
 
 ## Tests
 
 ```bash
-python3 -m pytest -q      # 100 tests
+pip install pytest '.[api,gemini,adk]'
+python3 -m pytest -q      # 119 tests, all green
 ```
+
+**What each extra buys you.** The suite is layered like the code: the core
+tests are stdlib-only, the rest need the extra whose surface they cover.
+
+| Installed | Result (119 collected) |
+|---|---|
+| nothing (stdlib) | 111 pass · 7 fail on import — the FastAPI-backed tests · 1 skip |
+| `.[api]` | 116 pass · 2 fail — the `GeminiBackend` fail-closed tests need `google-genai` · 1 skip |
+| `.[api,gemini]` | 118 pass · 1 skip — the ADK tool-authority test needs `google-adk` |
+| `.[api,gemini,adk]` | 119 pass |
+
+Failures in the first two rows are missing dependencies, not regressions; the
+core's own tests never need anything but the stdlib.
 
 Red-first: every negative control adulterates the source of truth and
 asserts detection. Executed mutations are caught (dropping `prev_hash` from

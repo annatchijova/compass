@@ -1,123 +1,249 @@
 # COMPASS
 
-Sistema de navegación personal adaptativo. Nombre provisional.
+**An adaptive personal-navigation partner. A compass, not a mirror.**
 
-Dos invariantes definen el proyecto: ninguna afirmación sobre la persona
-existe sin evidencia registrada y sellada, y ningún número que la
-describa sale de un LLM. El diseño completo, la arquitectura de
-autoridad y las decisiones abiertas están en
-`docs/COMPASS-DESIGN-v0.md`.
+COMPASS helps a person discover their own capabilities and direction from
+evidence of their own life, through cycles of hypothesis → experiment →
+update. Two invariants separate it from a personality test with a chatbot
+bolted on:
 
-## Estado: esqueleto completo (módulos 1-9 del inventario, §8)
+1. **No claim about the person exists without recorded, sealed evidence.**
+2. **No number describing the person ever comes out of an LLM.** A
+   deterministic engine computes and *seals* every index before any model
+   is called.
 
-1. **Esquema SQLite v1 + migraciones** (`db.py`) — versionado desde el
-   día uno, rechazo de esquemas futuros, constraints con dientes
-   (preregistro y tombstone forzados por esquema).
-2. **Cadena de auditoría** (`audit_chain.py`) — append-only,
-   hash-chained, génesis único, cola verificada sin lavado, linkage e
-   integrity separados.
-3. **Confidence Engine v1** (`engine.py`) — pesos PROVISORIOS sellados
-   en `engine_config` y registrados en `decision_record` con condición
-   de reapertura; aritmética exacta con `Fraction`, índice entero
-   0-1000 asintótico (la certeza total no existe), evidencia
-   contradictoria con factor 3/2, corroboración solo con evidencia
-   discriminante, `descartada` pegajosa (solo la persona).
-4. **Dominio** (`domain.py`) — evidencia (candidatos vs. validada),
-   tombstone honesto con razón declarada, hipótesis, y el ciclo
-   completo experimento → observación → reflexión; completar un
-   experimento genera la evidencia según el criterio PREREGISTRADO que
-   se cumplió (inconcluso no genera nada: no discriminó).
-5. **Vista compass** (`views.py`) — estado sellado, resumen comprimido
-   de solo lectura, y UN siguiente paso por reglas determinísticas
-   explícitas con ABSTAIN válido.
-6. **Capa LLM** (`llm.py`) — tres roles sin autoridad (extractor,
-   abductor, narrador); toda salida de modelo validada en frontera o
-   rechazada; narrativa de la persona como dato, jamás instrucción;
-   `FakeBackend` determinístico + esqueletos Anthropic/Ollama.
-7. **CLI** (`cli.py`, `python -m compass`) — ciclo completo usable
-   offline con el backend fake.
+The full design rationale is in [`docs/COMPASS-DESIGN-v0.md`](docs/COMPASS-DESIGN-v0.md).
 
-Core: stdlib pura. `pytest` solo para desarrollo.
+---
 
-## Correr
+## Hackathon — All Things Agentic
 
+**Category: Collaborative Partner** — an interactive agent that walks the
+person through the abductive cycle and learns from the sealed state between
+turns.
+
+The three mandatory boxes, all checked:
+
+| Requirement | How COMPASS meets it |
+|---|---|
+| **Gemini model** (Gemini API or Vertex AI) | `GeminiBackend` (`src/compass/llm.py`) — one backend for both transports via the native `google-genai` env flags. The mandatory model, used only to *narrate* and *propose*. |
+| **Google agent framework** | **ADK** — `compass.agent.root_agent` (`src/compass/agent/agent.py`): a Collaborative Partner whose authority is exactly its tool set. |
+| **Google Cloud service** | **Cloud Run** hosts the FastAPI backend; **Vertex AI** serves Gemini through the service identity (no API key stored). See [`DEPLOY.md`](DEPLOY.md). |
+
+- **Live URL:** _to be filled after deploy_
+- **Demo video:** _to be filled_
+- **Architecture diagram:** below, and in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
+### Why this is an *architecturally disciplined* agent
+
+The differentiator is not that an agent talks; it is **where the agent is
+not allowed to be**. A language model can read the evidence correctly and
+still reach the wrong conclusion under narrative pressure. So the model
+never touches the decision path:
+
+- The deterministic engine produces and **seals** every index *before* the
+  agent or narrator is invoked. The model cannot influence a value that was
+  already fixed.
+- The ADK agent's authority is bounded by its tools. Only one tool
+  (`recompute_indices`) produces numbers, and it runs the deterministic
+  engine and seals the result *before returning it*: the agent reads the
+  number, it does not fabricate one. There is deliberately **no tool** to
+  validate evidence, discard a hypothesis, or declare an experiment's
+  outcome — those are the person's acts.
+- **Architecture test:** swapping the model backend (Gemini ↔ the offline
+  `demo`/`fake` backend) changes only the wording — never a verdict, seal,
+  or the chain of custody. This is enforced by
+  `tests/test_hackathon_layer.py::test_swapping_narrator_backend_never_changes_the_seal`.
+
+---
+
+## Architecture
+
+```mermaid
+flowchart TD
+    subgraph person["The person — the only source of validated truth"]
+        P[Narratives, self-reports, experiment outcomes]
+    end
+
+    subgraph llm["LLM roles — NO authority (Gemini via ADK)"]
+        EX[Extractor: narrative → candidate signals]
+        AB[Abductor: rival hypotheses + discriminating experiments]
+        NA[Narrator: puts the SEALED state into words]
+    end
+
+    subgraph core["Deterministic core — stdlib only, no float in the decision path"]
+        DOM[Domain ops: evidence, hypotheses, experiments]
+        ENG[Confidence Engine v1: Fraction math, integer 0-1000 index]
+        SEAL[(Seal: SHA-256 over canonical bytes)]
+        CHAIN[[Audit chain: append-only, hash-chained]]
+    end
+
+    subgraph gcp["Google Cloud"]
+        RUN[Cloud Run: FastAPI domain API]
+        ADKR[ADK agent: root_agent]
+        VTX[Vertex AI: Gemini]
+    end
+
+    FE[Next.js frontend]
+
+    P -->|validates candidates| DOM
+    EX -.proposes.-> DOM
+    AB -.proposes.-> DOM
+    DOM --> ENG --> SEAL --> CHAIN
+    SEAL -->|read-only compressed summary| NA
+    NA -.prose stored beside the seal, by hash.-> CHAIN
+    RUN --- core
+    ADKR --- core
+    ADKR --> VTX
+    VTX --- llm
+    FE -->|HTTP| RUN
+
+    classDef noauth fill:#fff7ed,stroke:#f59e0b;
+    classDef det fill:#eef2ff,stroke:#6366f1;
+    class EX,AB,NA noauth;
+    class DOM,ENG,SEAL,CHAIN det;
 ```
-python3 -m pytest                       # 91 tests
-PYTHONPATH=src python3 -m compass init  # y de ahí: person, hyp, evidence,
-                                        # link, exp, recompute, compass...
-python3 tools/verify_chain.py compass.db
+
+**Authority — who may assert what:**
+
+| Component | Authority | May |
+|---|---|---|
+| Evidence ledger | the person + the facts | record validated evidence, never delete it silently |
+| Confidence engine | versioned rules | compute indices, seal them |
+| LLM (Gemini) | none | propose, abduce, narrate — never decide or score |
+
+---
+
+## Quickstart
+
+The core is **pure Python stdlib**. It runs the entire cycle offline, with
+no credential and no cloud, using a role-aware `demo` backend.
+
+### 1. The core cycle (CLI, offline)
+
+```bash
+python3 -m pytest                          # 100 tests
+PYTHONPATH=src python3 -m compass init     # then: person, hyp, evidence, link,
+                                           # exp, recompute, compass, verify ...
+python3 tools/verify_chain.py compass.db   # independent, stdlib-only verifier
 ```
 
-`tools/verify_chain.py` es el verificador **independiente**: stdlib
-pura, no importa el paquete. Reimplementa la spec a propósito, para que
-confirmar la cadena no exija confiar en el código que la escribió.
+`tools/verify_chain.py` re-implements the seal spec on purpose, so
+confirming the audit chain does not require trusting the code that wrote it.
 
-## Spec del sobre sellado (para verificadores de terceros)
+### 2. The API + web app (local)
 
-```
-material   = json.dumps({"content_hashes": [...ordenado...], "cv": int,
-                         "op": str, "payload_c14n": str, "seq": int,
-                         "ts": str},
-                        sort_keys=True, separators=(",", ":"),
-                        ensure_ascii=False)
-audit_hash = sha256(utf8(material) + utf8(prev_hash))
-génesis    : prev_hash = "0" * 64, seq = 1, único para siempre
+```bash
+pip install '.[api]'                        # fastapi + uvicorn
+COMPASS_BACKEND=demo COMPASS_DB=/tmp/compass.db \
+  uvicorn compass.api:app --reload --port 8080
+# → http://localhost:8080/health  and  /docs
 ```
 
-`payload_c14n` se persiste como el string canónico exacto que se hasheó;
-`content_hashes` sella el contenido referenciado
-(`sha256(utf8(evidence.content))`): editar la fila referenciada se
-detecta aunque la cadena recompute bien.
+The API seeds a demo scenario on first boot, so the compass is populated
+immediately. Then, in `frontend/`:
 
-## Orden inviolable de la narración
-
-```
-estado -> seal -> resumen comprimido -> narrador -> prosa junto al seal
+```bash
+cd frontend && npm install
+NEXT_PUBLIC_API_URL=http://localhost:8080 npm run dev   # → http://localhost:3000
 ```
 
-El seal existe antes de que cualquier modelo hable; el narrador recibe
-un resumen de solo lectura con el seal adentro; la prosa se registra en
-la cadena por su hash, nunca dentro del seal. Test arquitectónico:
-cambiar de backend cambia la prosa y ningún número
-(`test_backend_intercambiable_no_cambia_numeros`).
+### 3. With the real Gemini model
 
-## Integridad de la suite
+```bash
+pip install '.[gemini,adk]'
+# Gemini API key:
+export COMPASS_BACKEND=gemini GEMINI_API_KEY=...        COMPASS_MODEL=gemini-2.5-flash
+# — or Vertex AI (no key stored):
+export COMPASS_BACKEND=gemini GOOGLE_GENAI_USE_VERTEXAI=TRUE \
+       GOOGLE_CLOUD_PROJECT=vigia-497422 GOOGLE_CLOUD_LOCATION=global
+```
 
-- Red-first: cada control negativo adultera la base de verdad y aserta
-  la detección.
-- Mutaciones ejecutadas y atrapadas (7): quitar `prev_hash` del cómputo
-  (atrapada por el verificador EXTERNO — el interno queda en tautología
-  con el productor mutado); colapsar bool en int; aceptar esquemas
-  futuros; contar evidencia sin validar; quitar el factor anti-halago;
-  sellado tardío (el narrador deja de recibir el seal); inversión de
-  prioridad en las reglas del next step.
-- Oráculos exactos del engine calculados A MANO desde la fórmula, más
-  invariante metamórfico: permutar el orden de carga no cambia el índice.
-- Determinismo verificado entre procesos frescos con `PYTHONHASHSEED`
-  distinto; recompute doble produce el mismo seal bit a bit.
+The ADK agent (`compass.agent.root_agent`) is a separate entry point from
+the domain API. Run it interactively with the ADK dev UI, or deploy it with
+ADK's first-class Cloud Run command:
 
-**Puntos ciegos declarados** (lo que esta suite NO cubre):
-- `AnthropicBackend` y `OllamaBackend` NO fueron probados en vivo: el
-  contrato está testeado vía fake; la primera corrida real puede
-  encontrar diferencias de forma de respuesta.
-- Los prompts (extractor/abductor/narrador) son v0 sin evaluación
-  adversaria: un modelo capturado por una narrativa persuasiva puede
-  proponer candidatos sesgados — la mitigación estructural es que nada
-  entra al ledger sin validación de la persona y ningún número sale del
-  modelo, pero la calidad de las propuestas no está medida.
-- Concurrencia real multiproceso más allá de `BEGIN IMMEDIATE` + WAL +
-  busy_timeout; recuperación tras kill -9 a mitad de transacción (se
-  confía en SQLite); rendimiento con cadenas largas.
-- Un adversario con escritura total puede reescribir la historia desde
-  el génesis: la cadena hace el tamperizado detectable ante un
-  verificador con una copia previa del hash de cola, no imposible.
-  Anclar periódicamente ese hash fuera de la máquina queda como
-  decisión abierta.
+```bash
+adk web src/compass                 # dev UI, discovers the root_agent package
+adk deploy cloud_run src/compass/agent   # containerize + deploy the agent
+```
 
-## Decisiones abiertas (design doc §9)
+### 4. Deploy to Cloud Run
 
-Los valores del engine v1 son PROVISORIOS: puestos para desbloquear el
-esqueleto, registrados en `decision_record` #1 con condición de
-reapertura explícita (auditoría con datos reales). Igual de abiertos:
-política de decay, política de confrontación autopercepción/datos,
-anclaje externo del hash de cola, nombre real, licencia.
+See [`DEPLOY.md`](DEPLOY.md) for the full recipe (project, APIs, env vars,
+and the two Gemini-3.x gotchas). Short version:
+
+```bash
+gcloud run deploy compass --source . --region us-central1 --allow-unauthenticated \
+  --set-env-vars COMPASS_BACKEND=gemini,GOOGLE_GENAI_USE_VERTEXAI=TRUE,\
+GOOGLE_CLOUD_PROJECT=vigia-497422,GOOGLE_CLOUD_LOCATION=global
+```
+
+---
+
+## What the deterministic core guarantees
+
+- **No float in the decision path.** `fractions.Fraction` for every weight,
+  ratio, and accumulation; the integer 0–1000 index is an asymptotic floor
+  (total certainty never exists — structural fallibilism). The index means
+  "accumulation of evidence under versioned rules", and the UI never
+  presents it as a probability.
+- **Contradicting evidence weighs more than confirming** (×3/2). A system
+  that can only raise confidence is a flattering mirror, not a compass.
+- **Corroboration requires a discriminating experiment.** No volume of
+  self-report corroborates a hypothesis; only `experiment_result` /
+  `outcome_external` evidence can.
+- **Canonical, typed, versioned serialization**, sealed with SHA-256 over
+  the canonical bytes. `bool` is checked before `int` so `1`, `"1"`, `1.0`,
+  `True` are distinguishable.
+- **Append-only, hash-chained ledger** with a single genesis, a tail check
+  before every append, and linkage/integrity reported *separately* (never
+  collapsed into one boolean). Deleting content leaves an honest, visible
+  tombstone in the chain, never a silent gap.
+- **Determinism is proven, not asserted:** the same input produces the same
+  seal bit-for-bit across fresh processes with a different `PYTHONHASHSEED`.
+
+---
+
+## Declared blind spots (the Daubert posture)
+
+A known limitation is an asset. What this project does **not** yet claim:
+
+- **Gemini is not tested live in this environment.** The contract is tested
+  via the offline backends; the first real call may surface response-shape
+  differences. (Same honesty the skeleton always kept about the
+  Anthropic/Ollama backends.)
+- **The prompts (extractor/abductor/narrator) are v0, un-audited
+  adversarially.** A model captured by a persuasive narrative can propose
+  biased *candidates* — the structural mitigation is that nothing enters the
+  ledger without the person's validation and no number leaves the model, but
+  the quality of proposals is not measured.
+- **The engine weights are PROVISIONAL** (`decision_record` #1 records the
+  reopening condition: an audit with real data). They unblock the skeleton;
+  they are not tuned.
+- **Cloud Run local disk is ephemeral.** The hosted demo seeds on boot;
+  durable state across cold starts would need a mounted volume or a managed
+  store. `/health` reports the durability honestly.
+- **A writer with total DB access can rewrite history from genesis.** The
+  chain makes tampering *detectable* against a verifier holding a prior tail
+  hash, not impossible. Anchoring that hash off-machine is an open decision.
+
+---
+
+## Tests
+
+```bash
+python3 -m pytest -q      # 100 tests
+```
+
+Red-first: every negative control adulterates the source of truth and
+asserts detection. Executed mutations are caught (dropping `prev_hash` from
+the hash, collapsing `bool` into `int`, accepting future schemas, counting
+unvalidated evidence, removing the anti-flattery factor, late sealing,
+priority inversion in the next-step rules). Engine oracles are computed by
+hand from the formula; a metamorphic invariant asserts that permuting load
+order does not change the index.
+
+## License
+
+[Apache-2.0](LICENSE).

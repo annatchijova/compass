@@ -11,7 +11,7 @@ license = "Apache-2.0"
 
 [project.optional-dependencies]
 # The core is stdlib-only. These extras add the hackathon web + agent layer.
-api = ["fastapi>=0.115", "uvicorn[standard]>=0.30"]
+api = ["fastapi>=0.115", "uvicorn[standard]>=0.30", "google-cloud-storage>=2.18"]
 gemini = ["google-genai>=1.0"]
 adk = ["google-adk>=1.0", "google-genai>=1.0"]
 

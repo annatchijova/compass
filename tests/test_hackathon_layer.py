@@ -96,11 +96,14 @@ def test_swapping_narrator_backend_never_changes_the_seal(tmp_path):
 # ------------------------------------------------------------ API smoke -----
 
 def test_api_full_cycle_smoke(tmp_path, monkeypatch):
-    monkeypatch.setenv("COMPASS_DB", str(tmp_path / "api.db"))
+    monkeypatch.setenv("COMPASS_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setenv("COMPASS_BACKEND", "demo")
-    # importar DESPUÉS de fijar el env: la app lee COMPASS_DB al import.
+    monkeypatch.delenv("COMPASS_GCS_BUCKET", raising=False)
+    # reimportar storage y api DESPUÉS de fijar el env: leen el dir al import.
     import importlib
 
+    from compass import storage as storage_module
+    importlib.reload(storage_module)
     from compass import api as api_module
     importlib.reload(api_module)
     from fastapi.testclient import TestClient
@@ -113,3 +116,31 @@ def test_api_full_cycle_smoke(tmp_path, monkeypatch):
         ex = c.post("/api/extract", json={"narrative": "vuelvo solo a lo que me obsesiona"})
         assert ex.status_code == 200 and ex.json()["candidates"]
         assert c.post("/api/recompute").json()["seal"]
+
+
+def test_api_isolates_users(tmp_path, monkeypatch):
+    """Dos compass ids distintos son bases distintas: lo que uno escribe no
+    aparece en el otro."""
+    monkeypatch.setenv("COMPASS_DATA_DIR", str(tmp_path / "data2"))
+    monkeypatch.setenv("COMPASS_BACKEND", "demo")
+    monkeypatch.delenv("COMPASS_GCS_BUCKET", raising=False)
+    import importlib
+
+    from compass import storage as storage_module
+    importlib.reload(storage_module)
+    from compass import api as api_module
+    importlib.reload(api_module)
+    from fastapi.testclient import TestClient
+
+    with TestClient(api_module.app) as c:
+        a = {"X-Compass-User": "alice"}
+        b = {"X-Compass-User": "bob"}
+        hid = c.post("/api/hypotheses", json={"statement": "alice-only hypothesis"},
+                     headers=a).json()["hypothesis_id"]
+        a_ids = [h["id"] for h in c.get("/api/hypotheses", headers=a).json()["hypotheses"]]
+        b_stmts = [h["statement"] for h in
+                   c.get("/api/hypotheses", headers=b).json()["hypotheses"]]
+        assert hid in a_ids
+        assert "alice-only hypothesis" not in b_stmts
+        # id inválido: rechazado en la frontera, no adivinado
+        assert c.get("/api/state", headers={"X-Compass-User": "../etc"}).status_code == 400

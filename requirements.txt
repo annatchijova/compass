@@ -5,3 +5,6 @@ fastapi==0.136.3
 uvicorn[standard]==0.47.0
 google-adk==2.1.0
 google-genai==1.75.0
+# Per-user SQLite snapshotted to Cloud Storage (multi-user hosted demo);
+# absent/unreachable degrades to local-only, honestly reported on /health.
+google-cloud-storage>=2.18,<4

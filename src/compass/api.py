@@ -1,52 +1,74 @@
 """API HTTP de COMPASS (FastAPI) para el frontend y la URL hosteada.
 
-Es una capa DELGADA sobre el dominio determinístico: cada endpoint abre
-la base, delega en `domain`/`engine`/`views` y devuelve JSON. La API no
-tiene lógica de decisión propia — no puede: los índices los produce y
+Es una capa DELGADA sobre el dominio determinístico: cada endpoint resuelve
+la base DEL USUARIO, delega en `domain`/`engine`/`views` y devuelve JSON. La
+API no tiene lógica de decisión propia — no puede: los índices los produce y
 sella el motor, y el orden inviolable de la narración (estado -> seal ->
 resumen -> narrador) vive en `views.narrate_compass`, no acá.
 
-Frontera de confianza (agent-trust-boundaries):
-- Los roles LLM (extractor, abductor, narrador) NO tienen autoridad. El
-  extractor devuelve candidatos que nacen `validated=0`: entran a la base
-  como pendientes, y validarlos es un acto EXPLÍCITO de la persona (un
-  endpoint distinto). Ningún texto de modelo escribe evidencia validada
-  ni mueve un índice.
-- El backend LLM se elige por `COMPASS_BACKEND` (fake por defecto: la API
-  arranca y sirve el ciclo completo sin credencial). Con `gemini` usa
-  Vertex AI/Gemini API — el modelo obligatorio del hackathon.
+Multi-usuario (para que los jueces lo usen y la persona lo use de verdad):
+- Cada request trae un `compass id` en el header `X-Compass-User` (session id
+  del navegador, o uno fijado por la persona). Ese id selecciona una base
+  SQLite AISLADA por usuario (`storage.py`). Sin login: abrir la URL alcanza.
+- El id se valida contra una allowlist estricta antes de tocar una ruta.
+- Cada base nueva se siembra con el escenario de demostración, así un juez
+  cae en una brújula poblada que puede modificar sin pisar la de nadie.
+- Tras cada escritura, la base se snapshotea a GCS (`storage.snapshot`) para
+  sobrevivir cold starts; una falla de persistencia degrada honestamente y
+  nunca destruye el resultado ya calculado.
 
-Persistencia: SQLite local (`COMPASS_DB`). En Cloud Run el disco es
-efímero; por eso al arrancar se siembra el escenario de demostración si
-la base está vacía, y `/health` declara honestamente que la durabilidad
-depende del entorno.
+Frontera de confianza (agent-trust-boundaries): los roles LLM NO tienen
+autoridad. El extractor persiste candidatos `validated=0`; validarlos es un
+acto EXPLÍCITO de la persona. Ningún texto de modelo mueve un índice.
 """
 
 from __future__ import annotations
 
 import os
-import sqlite3
 from contextlib import asynccontextmanager, contextmanager
 from typing import Iterator, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from . import domain, engine, seed_demo, views
+from . import domain, engine, seed_demo, storage, views
 from .audit_chain import verify_chain
 from .db import EVIDENCE_TYPES, open_db
 from .llm import (Abductor, Extractor, LLMOutputError, Narrator,
                   backend_from_env)
 
-DB_PATH = os.environ.get("COMPASS_DB", "compass.db")
+
+@contextmanager
+def _db(uid: str, write: bool = False) -> Iterator["object"]:
+    """Abre la base AISLADA del usuario (restaurándola de GCS si hace falta),
+    la siembra si está vacía, y —si hubo escritura— la snapshotea a GCS al
+    salir. El snapshot ocurre fuera de la transacción, después del commit."""
+    path = storage.ensure_local(uid)
+    conn = open_db(path)
+    try:
+        seed_demo.seed(conn)  # idempotente: no hace nada si ya hay persona
+        yield conn
+    finally:
+        conn.close()
+    if write:
+        storage.snapshot(uid)
+
+
+def get_uid(x_compass_user: str = Header(default=storage.DEMO_UID,
+                                         alias="X-Compass-User")) -> str:
+    """Resuelve y valida el compass id del request (default: la vitrina)."""
+    try:
+        return storage.require_uid(x_compass_user)
+    except storage.InvalidUserId as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @asynccontextmanager
 async def _lifespan(_app: FastAPI):
-    """Al arrancar: siembra el escenario de demostración si la base está
-    vacía, para que la URL hosteada no muestre una brújula vacía."""
-    with _db() as conn:
+    """Al arrancar: siembra la brújula vitrina (`demo`) si está vacía, para
+    que la URL hosteada no muestre una brújula vacía."""
+    with _db(storage.DEMO_UID) as conn:
         seed_demo.seed(conn)
     yield
 
@@ -54,13 +76,13 @@ async def _lifespan(_app: FastAPI):
 app = FastAPI(
     title="COMPASS",
     description="Navegación personal adaptativa. Núcleo determinístico, "
-    "LLM sin autoridad. API sobre el dominio sellado.",
+    "LLM sin autoridad. API multi-usuario sobre el dominio sellado.",
     version="0.1.0",
     lifespan=_lifespan,
 )
 
 # El frontend Next.js vive en otro origen (otro servicio de Cloud Run):
-# CORS abierto para el demo. Endurecer antes de exponer la URL ampliamente.
+# CORS abierto para el demo. El header X-Compass-User debe estar permitido.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=os.environ.get("COMPASS_CORS_ORIGINS", "*").split(","),
@@ -70,17 +92,7 @@ app.add_middleware(
 )
 
 
-@contextmanager
-def _db() -> Iterator[sqlite3.Connection]:
-    conn = open_db(DB_PATH)
-    try:
-        yield conn
-    finally:
-        conn.close()
-
-
 def _domain_error(exc: Exception) -> HTTPException:
-    """Traduce un error de dominio (frontera) a 400; el resto sube a 500."""
     return HTTPException(status_code=400, detail=str(exc))
 
 
@@ -89,9 +101,8 @@ def _domain_error(exc: Exception) -> HTTPException:
 @app.get("/health")
 def health() -> dict:
     backend_kind = os.environ.get("COMPASS_BACKEND", "fake")
-    with _db() as conn:
+    with _db(storage.DEMO_UID) as conn:
         report = verify_chain(conn)
-        seeded = seed_demo.is_seeded(conn)
     vertex = os.environ.get("GOOGLE_GENAI_USE_VERTEXAI", "").upper() in ("TRUE", "1")
     return {
         "status": "ok",
@@ -102,11 +113,7 @@ def health() -> dict:
                                 else None),
         "gemini_transport": ("vertex-ai" if vertex else "gemini-api")
         if backend_kind == "gemini" else None,
-        "db_path": DB_PATH,
-        "db_durability": "ephemeral (Cloud Run local disk)"
-        if DB_PATH.startswith("/tmp") or os.environ.get("K_SERVICE")
-        else "local file",
-        "seeded": seeded,
+        "persistence": storage.persistence_mode(),
         "chain_linkage_ok": report.linkage_ok,
         "chain_integrity_ok": report.integrity_ok,
     }
@@ -115,15 +122,15 @@ def health() -> dict:
 # ---------------------------------------------------------------- lectura ---
 
 @app.get("/api/state")
-def get_state() -> dict:
+def get_state(uid: str = Depends(get_uid)) -> dict:
     """Estado sellado: el seal existe ANTES de cualquier narrador."""
-    with _db() as conn:
+    with _db(uid) as conn:
         return views.sealed_state(conn)
 
 
 @app.get("/api/evidence")
-def list_evidence() -> dict:
-    with _db() as conn:
+def list_evidence(uid: str = Depends(get_uid)) -> dict:
+    with _db(uid) as conn:
         rows = conn.execute(
             "SELECT id, evidence_type, source, content, validated, deleted, "
             "created_at, validated_at FROM evidence ORDER BY id ASC"
@@ -132,8 +139,8 @@ def list_evidence() -> dict:
 
 
 @app.get("/api/hypotheses")
-def list_hypotheses() -> dict:
-    with _db() as conn:
+def list_hypotheses(uid: str = Depends(get_uid)) -> dict:
+    with _db(uid) as conn:
         rows = conn.execute(
             "SELECT id, statement, status, origin, index_value, engine_version "
             "FROM hypothesis ORDER BY COALESCE(index_value, 0) DESC, id ASC"
@@ -142,8 +149,8 @@ def list_hypotheses() -> dict:
 
 
 @app.get("/api/experiments")
-def list_experiments() -> dict:
-    with _db() as conn:
+def list_experiments(uid: str = Depends(get_uid)) -> dict:
+    with _db(uid) as conn:
         rows = conn.execute(
             "SELECT id, hypothesis_id, design, success_criterion, "
             "failure_criterion, rival_hypothesis_id, status, preregistered_at, "
@@ -153,10 +160,10 @@ def list_experiments() -> dict:
 
 
 @app.get("/api/chain")
-def get_chain() -> dict:
+def get_chain(uid: str = Depends(get_uid)) -> dict:
     """La cadena completa + el reporte del verificador (linkage e integrity
     por separado, jamás colapsados en un booleano)."""
-    with _db() as conn:
+    with _db(uid) as conn:
         rows = conn.execute(
             "SELECT seq, op, ts, audit_hash, prev_hash FROM audit_chain "
             "ORDER BY seq ASC"
@@ -180,8 +187,8 @@ class EvidenceIn(BaseModel):
 
 
 @app.post("/api/evidence")
-def add_evidence(body: EvidenceIn) -> dict:
-    with _db() as conn:
+def add_evidence(body: EvidenceIn, uid: str = Depends(get_uid)) -> dict:
+    with _db(uid, write=True) as conn:
         try:
             eid = domain.evidence_add(
                 conn, evidence_type=body.evidence_type, source=body.source,
@@ -193,9 +200,9 @@ def add_evidence(body: EvidenceIn) -> dict:
 
 
 @app.post("/api/evidence/{evidence_id}/validate")
-def validate_evidence(evidence_id: int) -> dict:
+def validate_evidence(evidence_id: int, uid: str = Depends(get_uid)) -> dict:
     """Validación: acto EXPLÍCITO de la persona. Ningún modelo la hace."""
-    with _db() as conn:
+    with _db(uid, write=True) as conn:
         try:
             domain.evidence_validate(conn, evidence_id)
         except domain.DomainError as exc:
@@ -208,8 +215,9 @@ class ForgetIn(BaseModel):
 
 
 @app.post("/api/evidence/{evidence_id}/forget")
-def forget_evidence(evidence_id: int, body: ForgetIn) -> dict:
-    with _db() as conn:
+def forget_evidence(evidence_id: int, body: ForgetIn,
+                    uid: str = Depends(get_uid)) -> dict:
+    with _db(uid, write=True) as conn:
         try:
             domain.evidence_tombstone(conn, evidence_id, body.reason)
         except domain.DomainError as exc:
@@ -222,8 +230,8 @@ class HypothesisIn(BaseModel):
 
 
 @app.post("/api/hypotheses")
-def add_hypothesis(body: HypothesisIn) -> dict:
-    with _db() as conn:
+def add_hypothesis(body: HypothesisIn, uid: str = Depends(get_uid)) -> dict:
+    with _db(uid, write=True) as conn:
         try:
             hid = domain.hypothesis_add(conn, statement=body.statement,
                                         origin="person")
@@ -239,8 +247,8 @@ class LinkIn(BaseModel):
 
 
 @app.post("/api/link")
-def link_evidence(body: LinkIn) -> dict:
-    with _db() as conn:
+def link_evidence(body: LinkIn, uid: str = Depends(get_uid)) -> dict:
+    with _db(uid, write=True) as conn:
         try:
             domain.evidence_link(conn, hypothesis_id=body.hypothesis_id,
                                  evidence_id=body.evidence_id,
@@ -260,8 +268,9 @@ class ExperimentIn(BaseModel):
 
 
 @app.post("/api/experiments")
-def preregister_experiment(body: ExperimentIn) -> dict:
-    with _db() as conn:
+def preregister_experiment(body: ExperimentIn,
+                           uid: str = Depends(get_uid)) -> dict:
+    with _db(uid, write=True) as conn:
         try:
             xid = domain.experiment_preregister(
                 conn, hypothesis_id=body.hypothesis_id, design=body.design,
@@ -281,8 +290,9 @@ class CompleteIn(BaseModel):
 
 
 @app.post("/api/experiments/{experiment_id}/complete")
-def complete_experiment(experiment_id: int, body: CompleteIn) -> dict:
-    with _db() as conn:
+def complete_experiment(experiment_id: int, body: CompleteIn,
+                        uid: str = Depends(get_uid)) -> dict:
+    with _db(uid, write=True) as conn:
         try:
             eid = domain.experiment_complete(
                 conn, experiment_id=experiment_id, outcome=body.outcome,
@@ -294,10 +304,10 @@ def complete_experiment(experiment_id: int, body: CompleteIn) -> dict:
 
 
 @app.post("/api/recompute")
-def recompute() -> dict:
+def recompute(uid: str = Depends(get_uid)) -> dict:
     """Recalcula TODOS los índices y sella. El seal se computa acá, antes
     de que cualquier narrador vea el resultado."""
-    with _db() as conn:
+    with _db(uid, write=True) as conn:
         return engine.recompute_all(conn)
 
 
@@ -308,11 +318,10 @@ class NarrativeIn(BaseModel):
 
 
 @app.post("/api/extract")
-def extract_signals(body: NarrativeIn) -> dict:
+def extract_signals(body: NarrativeIn, uid: str = Depends(get_uid)) -> dict:
     """Extractor (rol LLM SIN autoridad): propone candidatos a señal desde
-    una narrativa. Los candidatos se PERSISTEN como evidencia pendiente
-    (`validated=0`, tipo `narrative_extracted`): entran a la cola de
-    validación, no al cálculo. Validarlos es un acto aparte de la persona.
+    una narrativa y los PERSISTE como evidencia pendiente (`validated=0`).
+    Validarlos es un acto aparte de la persona; ningún índice se mueve acá.
     """
     backend = backend_from_env()
     try:
@@ -323,13 +332,13 @@ def extract_signals(body: NarrativeIn) -> dict:
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"error del backend LLM: {exc}")
     created = []
-    with _db() as conn:
+    with _db(uid, write=True) as conn:
         for c in candidates:
             eid = domain.evidence_add(
                 conn, evidence_type="narrative_extracted",
                 source="llm_extractor",
                 content={"señal": c["señal"], "cita": c["cita"]},
-                validated=False,  # nace pendiente: la persona valida
+                validated=False,
             )
             created.append({"evidence_id": eid, **c})
     return {"candidates": created,
@@ -338,11 +347,10 @@ def extract_signals(body: NarrativeIn) -> dict:
 
 
 @app.post("/api/abduce")
-def abduce_hypotheses() -> dict:
+def abduce_hypotheses(uid: str = Depends(get_uid)) -> dict:
     """Abductor (rol LLM SIN autoridad): dado el resumen sellado, propone
-    hipótesis rivales. NO las persiste ni les asigna confianza; la persona
-    decide cuáles registrar."""
-    with _db() as conn:
+    hipótesis rivales. NO las persiste ni les asigna confianza."""
+    with _db(uid) as conn:
         sealed = views.sealed_state(conn)
         summary = views.compressed_summary(sealed)
     backend = backend_from_env()
@@ -357,13 +365,13 @@ def abduce_hypotheses() -> dict:
 
 
 @app.post("/api/narrate")
-def narrate(language: str = "English") -> dict:
+def narrate(language: str = "English", uid: str = Depends(get_uid)) -> dict:
     """Narrador (rol LLM SIN autoridad): sella, resume, narra y registra la
     prosa por su hash JUNTO al seal. Cambiar de backend (o de idioma) cambia
     la prosa y ningún número — ese es el test de arquitectura. `language`:
     English (default) | Spanish."""
     backend = backend_from_env()
-    with _db() as conn:
+    with _db(uid, write=True) as conn:
         try:
             out = views.narrate_compass(conn, Narrator(backend), language)
         except LLMOutputError as exc:

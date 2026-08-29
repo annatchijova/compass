@@ -4,9 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Compass } from "lucide-react";
 import { CompassLogo, CompassWordmark } from "@/components/CompassLogo";
+import { LanguageToggle } from "@/components/LanguageToggle";
+import { useI18n } from "@/lib/i18n";
 
 export function Navbar() {
   const pathname = usePathname();
+  const { t } = useI18n();
 
   return (
     <header className="nav-glass">
@@ -21,13 +24,14 @@ export function Navbar() {
             <CompassWordmark />
           </Link>
 
-          <nav className="flex items-center gap-1" aria-label="Primary">
+          <nav className="flex items-center gap-2" aria-label="Primary">
             <Link
               href="/#how"
-              className="rounded-full px-3 py-1.5 text-[13px] font-semibold text-ink-500 transition hover:bg-ink-900/5 hover:text-ink-900"
+              className="hidden rounded-full px-3 py-1.5 text-[13px] font-semibold text-ink-500 transition hover:bg-ink-900/5 hover:text-ink-900 sm:inline-block"
             >
-              How it works
+              {t("nav.how")}
             </Link>
+            <LanguageToggle />
             <Link
               href="/compass"
               className={`btn-primary shadow-soft inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-bold ${
@@ -35,7 +39,7 @@ export function Navbar() {
               }`}
             >
               <Compass className="h-4 w-4" />
-              Open dashboard
+              <span className="hidden sm:inline">{t("nav.dashboard")}</span>
             </Link>
           </nav>
         </div>

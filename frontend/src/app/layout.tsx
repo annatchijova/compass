@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Newsreader } from "next/font/google";
 import "./globals.css";
+import { I18nProvider } from "@/lib/i18n";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 
@@ -34,14 +35,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${inter.variable} ${newsreader.variable}`}>
       <body className="font-sans">
-        <div className="app-bg">
-          <Navbar />
-          <a href="#main" className="skip-link">
-            Skip to content
-          </a>
-          <main id="main">{children}</main>
-          <Footer />
-        </div>
+        <I18nProvider>
+          <div className="app-bg">
+            <Navbar />
+            <a href="#main" className="skip-link">
+              Skip to content
+            </a>
+            <main id="main">{children}</main>
+            <Footer />
+          </div>
+        </I18nProvider>
       </body>
     </html>
   );

@@ -14,6 +14,7 @@ import type {
   AbduceResponse,
   EvidenceType,
 } from "./types";
+import { getUserId } from "./session";
 
 export const API_BASE =
   (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080").replace(/\/$/, "");
@@ -29,12 +30,17 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  // Identify which isolated compass this request reads/writes. Read from
+  // localStorage at call time; empty on the server (SSR) — all callers here
+  // are client components, so a real id is present in the browser.
+  const userId = getUserId();
   let res: Response;
   try {
     res = await fetch(`${API_BASE}${path}`, {
       ...init,
       headers: {
         "Content-Type": "application/json",
+        ...(userId ? { "X-Compass-User": userId } : {}),
         ...(init?.headers || {}),
       },
       cache: "no-store",
@@ -142,5 +148,12 @@ export const extract = (narrative: string) =>
 export const abduce = () =>
   request<AbduceResponse>("/api/abduce", { method: "POST" });
 
-export const narrate = () =>
-  request<NarrateResponse>("/api/narrate", { method: "POST" });
+// The narrator responds in the requested language. The endpoint accepts a
+// `language` query param with values exactly "English" or "Spanish"
+// (default English). This only affects the narrator's WORDS — never the
+// seal or any index, which are fixed before narration.
+export const narrate = (language: "English" | "Spanish" = "English") =>
+  request<NarrateResponse>(
+    `/api/narrate?language=${encodeURIComponent(language)}`,
+    { method: "POST" },
+  );

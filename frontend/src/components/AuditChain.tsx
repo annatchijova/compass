@@ -3,6 +3,7 @@
 import { Fingerprint, Link2, CheckCircle2, AlertTriangle } from "lucide-react";
 import type { ChainEntry } from "@/lib/types";
 import { shortHash, formatDate } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
 
 // Append-only, hash-chained audit ledger view. Adapted from VELO's
 // CustodyChain (same numbered-node timeline + linkage/integrity verdicts).
@@ -15,13 +16,14 @@ export function AuditChain({
   linkageOk: boolean;
   integrityOk: boolean;
 }) {
+  const { t } = useI18n();
+
   if (entries.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-ink-900/15 bg-ink-900/[0.02] p-5 text-center">
-        <p className="text-[13px] font-bold text-ink-900">No ledger entries yet</p>
+        <p className="text-[13px] font-bold text-ink-900">{t("chain.emptyTitle")}</p>
         <p className="mt-1 text-[12px] leading-relaxed text-ink-500">
-          Every claim about the person appends a sealed entry here. Nothing has been
-          recorded.
+          {t("chain.emptyDesc")}
         </p>
       </div>
     );
@@ -30,9 +32,11 @@ export function AuditChain({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <Verdict ok={linkageOk} label="linkage" />
-        <Verdict ok={integrityOk} label="integrity" />
-        <span className="ml-auto text-[11px] text-ink-400">{entries.length} entries</span>
+        <Verdict ok={linkageOk} label={t("chain.linkage")} />
+        <Verdict ok={integrityOk} label={t("chain.integrity")} />
+        <span className="ml-auto text-[11px] text-ink-400">
+          {entries.length} {t("chain.entries")}
+        </span>
       </div>
 
       <div className="space-y-2">
@@ -46,7 +50,10 @@ export function AuditChain({
             </span>
             <div className="min-w-0 flex-1 pb-1">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-brand-indigo/10 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-brand-deep">
+                {/* op is a stable event-code identifier from the backend —
+                    shown verbatim as a compact monospace code, never
+                    translated (a fake translation would hide the real op). */}
+                <span className="rounded-full bg-brand-indigo/10 px-2.5 py-0.5 font-mono text-[11px] font-bold tracking-tight text-brand-deep">
                   {e.op}
                 </span>
                 <span className="text-[11.5px] text-ink-400">{formatDate(e.ts)}</span>
@@ -58,7 +65,7 @@ export function AuditChain({
                 </span>
                 <span className="inline-flex items-center gap-1 text-ink-400">
                   <Link2 className="h-3 w-3 shrink-0" />
-                  prev {shortHash(e.prev_hash, 8, 6)}
+                  {t("chain.prev")} {shortHash(e.prev_hash, 8, 6)}
                 </span>
               </div>
             </div>

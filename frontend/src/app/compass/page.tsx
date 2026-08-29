@@ -17,13 +17,16 @@ import {
   Clock,
   Wand2,
   GitBranch,
+  Plus,
 } from "lucide-react";
 import * as api from "@/lib/api";
 import { ApiError } from "@/lib/api";
+import { useI18n, nextStepSentence, narratorLanguage } from "@/lib/i18n";
 import type {
   StateResponse,
   Evidence,
   ChainResponse,
+  NextStep,
   NextStepKind,
   ExtractCandidate,
   NarrateResponse,
@@ -32,6 +35,8 @@ import { shortHash, contentSnippet, formatDate } from "@/lib/utils";
 import { StatusChip, statusIsStruck } from "@/components/StatusChip";
 import { IndexGauge } from "@/components/IndexGauge";
 import { AuditChain } from "@/components/AuditChain";
+import { CompassIdControl } from "@/components/CompassIdControl";
+import { QuickTour } from "@/components/QuickTour";
 
 const NEXT_STEP_ICON: Record<NextStepKind, typeof FlaskConical> = {
   completar_experimento: ClipboardCheck,
@@ -41,15 +46,8 @@ const NEXT_STEP_ICON: Record<NextStepKind, typeof FlaskConical> = {
   abstain: Pause,
 };
 
-const EVIDENCE_TYPE_LABEL: Record<string, string> = {
-  self_report: "self report",
-  narrative_extracted: "narrative",
-  behavioral: "behavioral",
-  experiment_result: "experiment",
-  outcome_external: "outcome",
-};
-
 export default function CompassDashboard() {
+  const { t, lang } = useI18n();
   const [state, setState] = useState<StateResponse | null>(null);
   const [evidence, setEvidence] = useState<Evidence[] | null>(null);
   const [chain, setChain] = useState<ChainResponse | null>(null);
@@ -57,27 +55,27 @@ export default function CompassDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
+  const fetchAll = useCallback(async () => {
+    const [s, e, c] = await Promise.all([
+      api.getState(),
+      api.getEvidence(),
+      api.getChain(),
+    ]);
+    setState(s);
+    setEvidence(e.evidence);
+    setChain(c);
+  }, []);
+
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [s, e, c] = await Promise.all([
-        api.getState(),
-        api.getEvidence(),
-        api.getChain(),
-      ]);
-      setState(s);
-      setEvidence(e.evidence);
-      setChain(c);
+      await fetchAll();
     } catch (err) {
-      const msg =
-        err instanceof ApiError
-          ? err.message
-          : "Something went wrong loading the dashboard.";
-      setError(msg);
+      setError(err instanceof ApiError ? err.message : t("err.load"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [fetchAll, t]);
 
   useEffect(() => {
     void load();
@@ -85,19 +83,11 @@ export default function CompassDashboard() {
 
   const refetch = useCallback(async () => {
     try {
-      const [s, e, c] = await Promise.all([
-        api.getState(),
-        api.getEvidence(),
-        api.getChain(),
-      ]);
-      setState(s);
-      setEvidence(e.evidence);
-      setChain(c);
+      await fetchAll();
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : "Refetch failed.";
-      setError(msg);
+      setError(err instanceof ApiError ? err.message : t("err.refetch"));
     }
-  }, []);
+  }, [fetchAll, t]);
 
   const onValidate = useCallback(
     async (id: number | string) => {
@@ -106,13 +96,23 @@ export default function CompassDashboard() {
         await api.validateEvidence(id);
         await refetch();
       } catch (err) {
-        setError(err instanceof ApiError ? err.message : "Validation failed.");
+        setError(err instanceof ApiError ? err.message : t("err.validate"));
       } finally {
         setBusy(null);
       }
     },
-    [refetch],
+    [refetch, t],
   );
+
+  // Switching the Compass ID loads a different isolated compass — show the
+  // skeleton and do a full load so nothing from the previous compass lingers.
+  const onUserChange = useCallback(() => {
+    setLoading(true);
+    setState(null);
+    setEvidence(null);
+    setChain(null);
+    void load();
+  }, [load]);
 
   const onRecompute = useCallback(async () => {
     setBusy("recompute");
@@ -120,11 +120,11 @@ export default function CompassDashboard() {
       await api.recompute();
       await refetch();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Recompute failed.");
+      setError(err instanceof ApiError ? err.message : t("err.recompute"));
     } finally {
       setBusy(null);
     }
-  }, [refetch]);
+  }, [refetch, t]);
 
   if (loading) return <DashboardSkeleton />;
 
@@ -141,15 +141,16 @@ export default function CompassDashboard() {
       <div className="animate-fade-up flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <p className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-ink-400">
-            Navigation dashboard
+            {t("dash.eyebrow")}
           </p>
           <h1 className="font-display text-[clamp(26px,4vw,38px)] font-extrabold tracking-tight text-ink-900">
-            {s?.person ?? "Person"}
+            {s?.person ?? t("dash.person.fallback")}
           </h1>
           <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[12px] text-ink-500">
+            <CompassIdControl onChange={onUserChange} />
             <span className="inline-flex items-center gap-1.5 rounded-full bg-ink-900/5 px-2.5 py-1 font-mono text-[11px] text-ink-700">
               <ShieldCheck className="h-3.5 w-3.5 text-brand-indigo" />
-              seal {shortHash(state?.seal, 10, 6)}
+              {t("dash.seal")} {shortHash(state?.seal, 10, 6)}
             </span>
             {chain && (
               <span
@@ -160,7 +161,8 @@ export default function CompassDashboard() {
                 }`}
               >
                 <ScrollText className="h-3.5 w-3.5" />
-                chain: linkage {chain.linkage_ok ? "✓" : "✗"} integrity{" "}
+                {t("dash.chainPrefix")} {t("dash.chain.linkage")}{" "}
+                {chain.linkage_ok ? "✓" : "✗"} {t("dash.chain.integrity")}{" "}
                 {chain.integrity_ok ? "✓" : "✗"}
               </span>
             )}
@@ -175,7 +177,7 @@ export default function CompassDashboard() {
           <RefreshCw
             className={`h-4 w-4 ${busy === "recompute" ? "animate-spin" : ""}`}
           />
-          Recompute &amp; reseal
+          {t("dash.recompute")}
         </button>
       </div>
 
@@ -191,76 +193,46 @@ export default function CompassDashboard() {
         <div className="animate-fade-up mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <CountCard
             icon={ClipboardCheck}
-            label="Evidence validated"
+            label={t("count.evidenceValidated")}
             value={s.evidence_validated ?? 0}
           />
           <CountCard
             icon={Clock}
-            label="Evidence pending"
+            label={t("count.evidencePending")}
             value={s.evidence_pending ?? 0}
           />
           <CountCard
-            icon={GitCount}
-            label="Hypotheses"
+            icon={GitBranch}
+            label={t("count.hypotheses")}
             value={s.hypotheses.length}
           />
           <CountCard
             icon={FlaskConical}
-            label="Experiments"
+            label={t("count.experiments")}
             value={countValues(s.experiment_counts)}
           />
         </div>
       )}
 
-      {/* The single next step */}
-      {s?.next_step && <NextStepCard kind={s.next_step.kind} detail={s.next_step.detail} />}
+      {/* Judge onboarding — dismissible quick tour */}
+      <QuickTour />
+
+      {/* The single next step — sentence rendered on the frontend from kind */}
+      {s?.next_step && <NextStepCard next={s.next_step} />}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1.4fr_1fr]">
         {/* Left column */}
         <div className="space-y-6">
           {/* Rival hypotheses */}
-          <Panel
-            title="Rival hypotheses"
-            subtitle="Held alive until a discriminating experiment separates them"
-            icon={GitCount}
-          >
-            {s && s.hypotheses.length > 0 ? (
-              <div className="grid gap-4 sm:grid-cols-2">
-                {s.hypotheses.map((h) => (
-                  <div
-                    key={h.id}
-                    className="card-solid rounded-2xl p-4"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <StatusChip status={h.status} />
-                      {h.engine_version && (
-                        <span className="font-mono text-[10px] text-ink-400">
-                          {h.engine_version}
-                        </span>
-                      )}
-                    </div>
-                    <p
-                      className={`mt-3 text-[13.5px] leading-relaxed text-ink-700 ${
-                        statusIsStruck(h.status) ? "line-through opacity-60" : ""
-                      }`}
-                    >
-                      {h.statement}
-                    </p>
-                    <div className="mt-3 border-t border-ink-900/5 pt-3">
-                      <IndexGauge index={h.index} status={h.status} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <Empty>No hypotheses yet.</Empty>
-            )}
-          </Panel>
+          <HypothesesPanel
+            hypotheses={s?.hypotheses ?? []}
+            onAdded={() => void refetch()}
+          />
 
           {/* Evidence ledger */}
           <Panel
-            title="Evidence ledger"
-            subtitle="Nothing counts until it is validated"
+            title={t("panel.evidence.title")}
+            subtitle={t("panel.evidence.subtitle")}
             icon={ClipboardList}
           >
             {visibleEvidence.length > 0 ? (
@@ -275,7 +247,7 @@ export default function CompassDashboard() {
                 ))}
               </div>
             ) : (
-              <Empty>No evidence recorded yet.</Empty>
+              <Empty>{t("panel.evidence.empty")}</Empty>
             )}
           </Panel>
 
@@ -286,12 +258,12 @@ export default function CompassDashboard() {
         {/* Right column */}
         <div className="space-y-6">
           {/* Narrator */}
-          <NarratePanel />
+          <NarratePanel language={narratorLanguage(lang)} />
 
           {/* Audit chain */}
           <Panel
-            title="Audit chain"
-            subtitle="Append-only, hash-chained ledger"
+            title={t("panel.chain.title")}
+            subtitle={t("panel.chain.subtitle")}
             icon={ScrollText}
           >
             {chain ? (
@@ -301,7 +273,7 @@ export default function CompassDashboard() {
                 integrityOk={chain.integrity_ok}
               />
             ) : (
-              <Empty>Chain unavailable.</Empty>
+              <Empty>{t("panel.chain.empty")}</Empty>
             )}
           </Panel>
         </div>
@@ -312,8 +284,10 @@ export default function CompassDashboard() {
 
 /* ─────────────────────────── sub-components ─────────────────────────── */
 
-function NextStepCard({ kind, detail }: { kind: NextStepKind; detail: string }) {
-  const Icon = NEXT_STEP_ICON[kind] ?? FlaskConical;
+function NextStepCard({ next }: { next: NextStep }) {
+  const { t } = useI18n();
+  const Icon = NEXT_STEP_ICON[next.kind] ?? FlaskConical;
+  const sentence = nextStepSentence(t, next);
   return (
     <div className="animate-fade-up shadow-glow glass mt-6 flex items-start gap-4 rounded-3xl p-6">
       <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl brand-gradient text-white">
@@ -321,14 +295,12 @@ function NextStepCard({ kind, detail }: { kind: NextStepKind; detail: string }) 
       </span>
       <div className="min-w-0">
         <p className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-brand-deep">
-          The single next step · {kind.replace(/_/g, " ")}
+          {t("next.eyebrow")} · {next.kind.replace(/_/g, " ")}
         </p>
         <p className="mt-1 text-[16px] font-semibold leading-relaxed text-ink-900">
-          {detail}
+          {sentence}
         </p>
-        <p className="mt-2 text-[11.5px] text-ink-400">
-          Deterministic recommendation — computed by the engine, not the narrator.
-        </p>
+        <p className="mt-2 text-[11.5px] text-ink-400">{t("next.caption")}</p>
       </div>
     </div>
   );
@@ -343,12 +315,15 @@ function EvidenceRow({
   onValidate: () => void;
   validating: boolean;
 }) {
+  const { t } = useI18n();
   const pending = ev.validated !== 1;
+  // Evidence type is a fixed enum → localized label; content is API-authored.
+  const typeLabel = t(`evidenceType.${ev.evidence_type}` as never) || ev.evidence_type;
   return (
     <div className="card-solid flex flex-col gap-2 rounded-2xl p-3.5 sm:flex-row sm:items-center sm:gap-3">
       <div className="flex shrink-0 items-center gap-2">
         <span className="rounded-full bg-brand-indigo/10 px-2.5 py-0.5 text-[10.5px] font-bold uppercase tracking-wide text-brand-deep">
-          {EVIDENCE_TYPE_LABEL[ev.evidence_type] ?? ev.evidence_type}
+          {typeLabel}
         </span>
       </div>
       <div className="min-w-0 flex-1">
@@ -364,7 +339,7 @@ function EvidenceRow({
           <>
             <span className="inline-flex items-center gap-1 rounded-full bg-status-debilitadaBg px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-wide text-status-debilitada">
               <Clock className="h-3 w-3" />
-              pending
+              {t("pill.pending")}
             </span>
             <button
               onClick={onValidate}
@@ -376,13 +351,13 @@ function EvidenceRow({
               ) : (
                 <CheckCircle2 className="h-3.5 w-3.5" />
               )}
-              Validate
+              {t("btn.validate")}
             </button>
           </>
         ) : (
           <span className="inline-flex items-center gap-1 rounded-full bg-status-corroboradaBg px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-wide text-status-corroborada">
             <CheckCircle2 className="h-3 w-3" />
-            validated
+            {t("pill.validated")}
           </span>
         )}
       </div>
@@ -391,6 +366,7 @@ function EvidenceRow({
 }
 
 function ExtractPanel({ onValidated }: { onValidated: () => void }) {
+  const { t } = useI18n();
   const [narrative, setNarrative] = useState("");
   const [candidates, setCandidates] = useState<ExtractCandidate[] | null>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -407,7 +383,7 @@ function ExtractPanel({ onValidated }: { onValidated: () => void }) {
       setCandidates(res.candidates);
       setNote(res.note ?? null);
     } catch (e) {
-      setErr(e instanceof ApiError ? e.message : "Extraction failed.");
+      setErr(e instanceof ApiError ? e.message : t("err.extract"));
     } finally {
       setBusy(false);
     }
@@ -420,7 +396,7 @@ function ExtractPanel({ onValidated }: { onValidated: () => void }) {
       setCandidates((prev) => prev?.filter((c) => c.evidence_id !== id) ?? null);
       onValidated();
     } catch (e) {
-      setErr(e instanceof ApiError ? e.message : "Validation failed.");
+      setErr(e instanceof ApiError ? e.message : t("err.validate"));
     } finally {
       setValidatingId(null);
     }
@@ -428,16 +404,26 @@ function ExtractPanel({ onValidated }: { onValidated: () => void }) {
 
   return (
     <Panel
-      title="Narrative → signals"
-      subtitle="Extracted candidates persist as PENDING evidence — nothing counts until validated"
+      title={t("panel.extract.title")}
+      subtitle={t("panel.extract.subtitle")}
       icon={Wand2}
     >
+      {/* Example narratives — clicking a chip only fills the textarea. */}
+      <ExampleChips
+        hint={t("examples.narrativeHint")}
+        examples={[
+          t("example.narrative1"),
+          t("example.narrative2"),
+          t("example.narrative3"),
+        ]}
+        onPick={setNarrative}
+      />
       <textarea
         value={narrative}
         onChange={(e) => setNarrative(e.target.value)}
         rows={4}
-        placeholder="Paste a narrative in the person's own words…"
-        className="field-input resize-y"
+        placeholder={t("panel.extract.placeholder")}
+        className="field-input mt-3 resize-y"
       />
       <div className="mt-3 flex items-center justify-between gap-3">
         <button
@@ -450,8 +436,9 @@ function ExtractPanel({ onValidated }: { onValidated: () => void }) {
           ) : (
             <Sparkles className="h-4 w-4" />
           )}
-          Extract signals
+          {t("panel.extract.action")}
         </button>
+        {/* note is API-authored — rendered as-is */}
         {note && <span className="text-[11px] italic text-ink-400">{note}</span>}
       </div>
 
@@ -464,7 +451,7 @@ function ExtractPanel({ onValidated }: { onValidated: () => void }) {
       {candidates && (
         <div className="mt-4 space-y-2">
           {candidates.length === 0 ? (
-            <Empty>No signals extracted.</Empty>
+            <Empty>{t("panel.extract.empty")}</Empty>
           ) : (
             candidates.map((c) => (
               <div
@@ -473,6 +460,7 @@ function ExtractPanel({ onValidated }: { onValidated: () => void }) {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
+                    {/* señal + cita are API-authored — rendered as-is */}
                     <p className="text-[13px] font-semibold text-ink-900">{c["señal"]}</p>
                     <p className="mt-1 border-l-2 border-brand-indigo/30 pl-2.5 text-[12px] italic leading-relaxed text-ink-500">
                       “{c.cita}”
@@ -488,11 +476,11 @@ function ExtractPanel({ onValidated }: { onValidated: () => void }) {
                     ) : (
                       <CheckCircle2 className="h-3.5 w-3.5" />
                     )}
-                    Validate
+                    {t("btn.validate")}
                   </button>
                 </div>
                 <p className="mt-2 text-[10.5px] font-bold uppercase tracking-wide text-brand-deep">
-                  pending — does not count until validated
+                  {t("panel.extract.pendingTag")}
                 </p>
               </div>
             ))
@@ -503,7 +491,8 @@ function ExtractPanel({ onValidated }: { onValidated: () => void }) {
   );
 }
 
-function NarratePanel() {
+function NarratePanel({ language }: { language: "English" | "Spanish" }) {
+  const { t } = useI18n();
   const [result, setResult] = useState<NarrateResponse | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -512,9 +501,10 @@ function NarratePanel() {
     setBusy(true);
     setErr(null);
     try {
-      setResult(await api.narrate());
+      // Pass the current UI language so the narrator responds in it.
+      setResult(await api.narrate(language));
     } catch (e) {
-      setErr(e instanceof ApiError ? e.message : "Narration failed.");
+      setErr(e instanceof ApiError ? e.message : t("err.narrate"));
     } finally {
       setBusy(false);
     }
@@ -522,8 +512,8 @@ function NarratePanel() {
 
   return (
     <Panel
-      title="Narrator"
-      subtitle="The seal exists before the narrator speaks"
+      title={t("panel.narrator.title")}
+      subtitle={t("panel.narrator.subtitle")}
       icon={Sparkles}
     >
       <button
@@ -536,7 +526,7 @@ function NarratePanel() {
         ) : (
           <Sparkles className="h-4 w-4" />
         )}
-        Narrate my state
+        {t("panel.narrator.action")}
       </button>
 
       {err && (
@@ -549,8 +539,9 @@ function NarratePanel() {
         <div className="animate-fade-up mt-4">
           <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-ink-900/5 px-2.5 py-1 font-mono text-[10.5px] text-ink-700">
             <ShieldCheck className="h-3 w-3 text-brand-indigo" />
-            seal {shortHash(result.seal, 10, 6)}
+            {t("dash.seal")} {shortHash(result.seal, 10, 6)}
           </div>
+          {/* summary + prose are the narrator's own words — rendered as-is */}
           {result.summary && (
             <p className="mb-2 text-[12px] font-semibold text-ink-500">{result.summary}</p>
           )}
@@ -558,8 +549,7 @@ function NarratePanel() {
             {result.prose}
           </div>
           <p className="mt-2 text-[11px] italic leading-relaxed text-ink-400">
-            The seal exists before the narrator speaks; swapping the model changes only
-            these words — never the seal or any index.
+            {t("panel.narrator.caption")}
           </p>
         </div>
       )}
@@ -567,7 +557,147 @@ function NarratePanel() {
   );
 }
 
+function HypothesesPanel({
+  hypotheses,
+  onAdded,
+}: {
+  hypotheses: StateResponse["state"]["hypotheses"];
+  onAdded: () => void;
+}) {
+  const { t } = useI18n();
+  const [statement, setStatement] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const add = async () => {
+    if (!statement.trim()) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      await api.postHypothesis(statement.trim());
+      setStatement("");
+      onAdded();
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : t("err.hypothesis"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Panel
+      title={t("panel.hypotheses.title")}
+      subtitle={t("panel.hypotheses.subtitle")}
+      icon={GitBranch}
+    >
+      {hypotheses.length > 0 ? (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {hypotheses.map((h) => (
+            <div key={h.id} className="card-solid rounded-2xl p-4">
+              <div className="flex items-center justify-between gap-2">
+                <StatusChip status={h.status} />
+                {h.engine_version && (
+                  <span className="font-mono text-[10px] text-ink-400">
+                    {h.engine_version}
+                  </span>
+                )}
+              </div>
+              {/* Hypothesis statement is user/API-authored — rendered as-is */}
+              <p
+                className={`mt-3 text-[13.5px] leading-relaxed text-ink-700 ${
+                  statusIsStruck(h.status) ? "line-through opacity-60" : ""
+                }`}
+              >
+                {h.statement}
+              </p>
+              <div className="mt-3 border-t border-ink-900/5 pt-3">
+                <IndexGauge index={h.index} status={h.status} />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <Empty>{t("panel.hypotheses.empty")}</Empty>
+      )}
+
+      {/* Add a hypothesis, with example chips that only fill the input. */}
+      <div className="mt-4 border-t border-ink-900/5 pt-4">
+        <ExampleChips
+          hint={t("examples.hypothesisHint")}
+          examples={[t("example.hypothesis1"), t("example.hypothesis2")]}
+          onPick={setStatement}
+        />
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+          <input
+            value={statement}
+            onChange={(e) => setStatement(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void add();
+            }}
+            placeholder={t("hypothesis.addPlaceholder")}
+            className="field-input flex-1"
+          />
+          <button
+            onClick={() => void add()}
+            disabled={busy || !statement.trim()}
+            className="btn-primary shadow-soft inline-flex shrink-0 items-center justify-center gap-2 rounded-full px-4 py-2 text-[13px] font-bold"
+          >
+            {busy ? (
+              <RefreshCw className="h-4 w-4 animate-spin" />
+            ) : (
+              <Plus className="h-4 w-4" />
+            )}
+            {t("hypothesis.add")}
+          </button>
+        </div>
+        {err && (
+          <p className="mt-2 flex items-center gap-1.5 text-[12px] text-status-debilitada">
+            <AlertCircle className="h-3.5 w-3.5" /> {err}
+          </p>
+        )}
+      </div>
+    </Panel>
+  );
+}
+
 /* ─────────────────────────── primitives ─────────────────────────── */
+
+// Small rounded ghost/pill chips (VELO look). Clicking a chip only FILLS the
+// target input via onPick — the user still clicks the real action button.
+function ExampleChips({
+  hint,
+  examples,
+  onPick,
+}: {
+  hint: string;
+  examples: string[];
+  onPick: (value: string) => void;
+}) {
+  const { t } = useI18n();
+  return (
+    <div>
+      <div className="mb-1.5 flex items-center gap-1.5">
+        <span className="text-[10px] font-bold uppercase tracking-wide text-ink-400">
+          {t("examples.label")}
+        </span>
+        <span className="text-[11px] text-ink-400">{hint}</span>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {examples.map((ex, i) => (
+          <button
+            key={i}
+            type="button"
+            onClick={() => onPick(ex)}
+            title={ex}
+            className="btn-ghost max-w-full truncate rounded-full px-3 py-1.5 text-left text-[11.5px] font-semibold"
+          >
+            {ex}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function Panel({
   title,
@@ -628,9 +758,6 @@ function Empty({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Alias used where GitBranch reads as "hypotheses".
-const GitCount = GitBranch;
-
 function countValues(counts?: Record<string, number>): number {
   if (!counts) return 0;
   return Object.values(counts).reduce((a, b) => a + (Number(b) || 0), 0);
@@ -670,17 +797,18 @@ function BackendUnreachable({
   message: string;
   onRetry: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <section className="mx-auto flex max-w-2xl flex-col items-center px-4 pb-10 pt-20 text-center">
       <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-status-debilitadaBg text-status-debilitada">
         <AlertCircle className="h-7 w-7" />
       </span>
       <h1 className="mt-5 font-display text-2xl font-extrabold tracking-tight text-ink-900">
-        Can&apos;t reach the COMPASS backend
+        {t("err.backendTitle")}
       </h1>
       <p className="mt-2 max-w-md text-[14px] leading-relaxed text-ink-500">{message}</p>
       <div className="mt-4 rounded-2xl bg-ink-900/5 px-4 py-3 text-left font-mono text-[12px] text-ink-700">
-        <p className="mb-1 text-ink-400"># start the backend, then retry</p>
+        <p className="mb-1 text-ink-400">{t("err.backendHint")}</p>
         <p>NEXT_PUBLIC_API_URL={api.API_BASE}</p>
       </div>
       <button
@@ -688,7 +816,7 @@ function BackendUnreachable({
         className="btn-primary shadow-soft mt-5 inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-bold"
       >
         <RefreshCw className="h-4 w-4" />
-        Retry
+        {t("err.retry")}
       </button>
     </section>
   );

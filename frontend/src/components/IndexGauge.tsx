@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { clampIndex } from "@/lib/utils";
 import { statusColor } from "@/components/StatusChip";
+import { useI18n } from "@/lib/i18n";
 import type { HypothesisStatus } from "@/lib/types";
 
 /**
@@ -20,6 +21,7 @@ export function IndexGauge({
   index: number | null;
   status: HypothesisStatus;
 }) {
+  const { t } = useI18n();
   const value = clampIndex(index); // 0–1000
   const [progress, setProgress] = useState(0);
   const color = statusColor(status);
@@ -72,16 +74,16 @@ export function IndexGauge({
               style={{ color }}
             >
               {value}
-              <span className="text-[14px] font-bold text-ink-400"> / 1000</span>
+              <span className="text-[14px] font-bold text-ink-400"> {t("gauge.unit")}</span>
             </span>
           )}
           <span className="mt-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-ink-400">
-            confidence index
+            {t("gauge.label")}
           </span>
         </div>
       </div>
       <p className="mt-2 max-w-[240px] text-center text-[11px] leading-relaxed text-ink-500">
-        accumulation of evidence under versioned rules — not a probability
+        {t("gauge.caption")}
       </p>
     </div>
   );

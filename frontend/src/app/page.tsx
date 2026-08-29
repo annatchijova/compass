@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import {
   ArrowRight,
@@ -8,6 +10,7 @@ import {
   ScrollText,
   Scale,
 } from "lucide-react";
+import { useI18n } from "@/lib/i18n";
 
 const CYCLE = [
   "DISCOVER",
@@ -20,25 +23,27 @@ const CYCLE = [
   "NAVIGATE",
 ];
 
-const FEATURES = [
-  {
-    icon: Lock,
-    title: "Sealed evidence ledger",
-    desc: "No claim about the person exists without recorded, sealed evidence. Every assertion is appended to an append-only, hash-chained audit ledger you can verify.",
-  },
-  {
-    icon: Cpu,
-    title: "No number from an LLM",
-    desc: "A deterministic engine computes and seals every confidence index before any model speaks. The narrator only puts fixed figures into words — it can never move them.",
-  },
-  {
-    icon: GitBranch,
-    title: "Rival hypotheses, discriminating experiments",
-    desc: "Competing explanations are held alive until a preregistered experiment separates them. Contradicting evidence weighs more than confirming — a compass, not a mirror.",
-  },
-];
-
 export default function LandingPage() {
+  const { t } = useI18n();
+
+  const features = [
+    {
+      icon: Lock,
+      title: t("landing.feature1.title"),
+      desc: t("landing.feature1.desc"),
+    },
+    {
+      icon: Cpu,
+      title: t("landing.feature2.title"),
+      desc: t("landing.feature2.desc"),
+    },
+    {
+      icon: GitBranch,
+      title: t("landing.feature3.title"),
+      desc: t("landing.feature3.desc"),
+    },
+  ];
+
   return (
     <section className="mx-auto max-w-7xl px-4 pb-8 pt-8">
       {/* Hero */}
@@ -47,21 +52,18 @@ export default function LandingPage() {
           <div className="animate-fade-up inline-flex items-center gap-2 rounded-full border border-ink-900/8 bg-white px-2 py-1 pl-3 shadow-soft">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-indigo/10 px-2.5 py-1 text-[11.5px] font-bold text-brand-deep">
               <span className="h-1.5 w-1.5 rounded-full bg-brand-indigo shadow-[0_0_0_4px_rgba(99,102,241,0.16)]" />
-              Adaptive personal navigation
+              {t("landing.badge")}
             </span>
           </div>
 
           <h1 className="animate-fade-up mt-5 font-display text-[clamp(38px,5.2vw,62px)] font-extrabold leading-[0.96] tracking-[-0.035em] text-ink-900">
-            Evidence, not flattery.
+            {t("landing.title1")}
             <br />
-            <span className="brand-text font-bold italic">A compass, not a mirror.</span>
+            <span className="brand-text font-bold italic">{t("landing.title2")}</span>
           </h1>
 
           <p className="animate-fade-up mt-5 max-w-[560px] text-[17.5px] leading-[1.62] text-ink-700">
-            COMPASS is a navigation partner bound by two invariants: no claim about you
-            exists without sealed evidence, and no number describing you ever comes out
-            of a language model. A deterministic engine computes and seals every index
-            before any model is allowed to speak.
+            {t("landing.subtitle")}
           </p>
 
           <div className="animate-fade-up mt-6 flex flex-wrap gap-3">
@@ -69,32 +71,32 @@ export default function LandingPage() {
               href="/compass"
               className="btn-primary shadow-soft inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold"
             >
-              Open the dashboard
+              {t("landing.cta")}
               <ArrowRight className="h-4 w-4" />
             </Link>
             <a
               href="#how"
               className="btn-ghost inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold"
             >
-              How it works
+              {t("landing.ctaSecondary")}
             </a>
           </div>
 
           <div className="animate-fade-up mt-6 grid max-w-[560px] grid-cols-1 gap-2.5 sm:grid-cols-3">
             <MiniStat
               icon={Cpu}
-              title="Deterministic core"
-              desc="The index is sealed before the LLM narrates."
+              title={t("landing.stat1.title")}
+              desc={t("landing.stat1.desc")}
             />
             <MiniStat
               icon={Scale}
-              title="Anti-flattery"
-              desc="Contradicting evidence weighs more than confirming."
+              title={t("landing.stat2.title")}
+              desc={t("landing.stat2.desc")}
             />
             <MiniStat
               icon={ScrollText}
-              title="Audit ledger"
-              desc="Append-only, hash-chained, independently verifiable."
+              title={t("landing.stat3.title")}
+              desc={t("landing.stat3.desc")}
             />
           </div>
         </div>
@@ -107,7 +109,7 @@ export default function LandingPage() {
 
       {/* Features */}
       <div className="mt-12 grid gap-4 md:grid-cols-3">
-        {FEATURES.map((f) => {
+        {features.map((f) => {
           const Icon = f.icon;
           return (
             <div key={f.title} className="card-solid card-hover rounded-3xl p-6">
@@ -124,17 +126,12 @@ export default function LandingPage() {
       </div>
 
       {/* How it works — the abductive cycle */}
-      <div
-        id="how"
-        className="glass-subtle mt-8 rounded-2xl px-5 py-4"
-      >
-        <div className="mb-3 flex items-center gap-2">
+      <div id="how" className="glass-subtle mt-8 rounded-2xl px-5 py-4">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
           <span className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-ink-500">
-            The abductive cycle
+            {t("landing.cycle.title")}
           </span>
-          <span className="inline-flex items-center gap-1.5 text-[11px] text-ink-400">
-            <span className="ml-1">rival hypotheses held alive until an experiment separates them</span>
-          </span>
+          <span className="text-[11px] text-ink-400">{t("landing.cycle.note")}</span>
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-3">
           {CYCLE.map((step, i) => (
@@ -152,7 +149,7 @@ export default function LandingPage() {
           ))}
           <span className="ml-auto inline-flex items-center gap-1.5 text-[12px] text-ink-500">
             <Lock className="h-3.5 w-3.5 text-brand-deep" />
-            index sealed before narration
+            {t("landing.cycle.tag")}
           </span>
         </div>
       </div>
@@ -184,6 +181,7 @@ function MiniStat({
 
 // A decorative dial reinforcing that the confidence index is 0–1000, never a %.
 function HeroDial() {
+  const { t } = useI18n();
   const R = 80;
   const CIRC = 2 * Math.PI * R;
   const value = 742; // illustrative only
@@ -214,16 +212,16 @@ function HeroDial() {
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className="brand-text font-display text-[42px] font-extrabold leading-none tracking-tight">
             {value}
-            <span className="text-[16px] font-bold text-ink-400"> / 1000</span>
+            <span className="text-[16px] font-bold text-ink-400"> {t("gauge.unit")}</span>
           </span>
           <span className="mt-1.5 text-[10px] font-bold uppercase tracking-[0.08em] text-ink-400">
-            confidence index
+            {t("landing.dial.label")}
           </span>
         </div>
       </div>
       <p className="mt-4 flex items-center gap-1.5 text-center text-[12px] leading-relaxed text-ink-500">
         <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-brand-indigo" />
-        an integer accumulation of evidence under versioned rules — never a probability
+        {t("landing.dial.caption")}
       </p>
     </div>
   );

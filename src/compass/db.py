@@ -31,7 +31,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Iterator
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 EVIDENCE_TYPES = (
     "self_report",
@@ -216,11 +216,42 @@ CREATE TABLE audit_chain (
 """
 
 
+# ---------------------------------------------------------------------------
+# Esquema v2: trayectorias (design doc §5, §7). Una trayectoria es un conjunto
+# de capacidades-requisito verificables; cada requisito referencia la hipótesis
+# (capacidad) que exige. El fit se proyecta determinísticamente del estado
+# sellado de esas hipótesis — sin porcentajes de destino. Aditivo: no toca
+# ninguna tabla v1, así que los datos v1 cargan intactos.
+# ---------------------------------------------------------------------------
+
+_SCHEMA_V2 = """
+CREATE TABLE trajectory (
+    id          INTEGER PRIMARY KEY,
+    name        TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    created_at  TEXT NOT NULL
+) STRICT;
+
+CREATE TABLE trajectory_requirement (
+    id            INTEGER PRIMARY KEY,
+    trajectory_id INTEGER NOT NULL REFERENCES trajectory (id),
+    hypothesis_id INTEGER NOT NULL REFERENCES hypothesis (id),
+    label         TEXT NOT NULL,   -- descripción humana de la capacidad exigida
+    created_at    TEXT NOT NULL,
+    UNIQUE (trajectory_id, hypothesis_id)
+) STRICT;
+CREATE INDEX idx_treq_trajectory ON trajectory_requirement (trajectory_id);
+CREATE INDEX idx_treq_hypothesis ON trajectory_requirement (hypothesis_id);
+"""
+
+
 def _migrate_to_v1(conn: sqlite3.Connection) -> None:
     conn.executescript(_SCHEMA_V1)
     conn.execute(
-        "INSERT INTO meta (key, value) VALUES ('schema_version', ?)",
-        (str(SCHEMA_VERSION),),
+        # Cada migrador fija SU versión de destino (1), no la global
+        # SCHEMA_VERSION: acoplarlo a la global rompía la cadena de migración
+        # al subir de versión. La cadena en ensure_schema actualiza el resto.
+        "INSERT INTO meta (key, value) VALUES ('schema_version', '1')",
     )
     conn.execute(
         "INSERT INTO meta (key, value) VALUES ('created_at', ?)",
@@ -231,8 +262,13 @@ def _migrate_to_v1(conn: sqlite3.Connection) -> None:
 # Cadena de migradores: un paso por versión. v1 -> v2 se registrará acá
 # cuando exista, y el loader los aplicará en secuencia. Los datos
 # guardados por v1 deben cargar en v5.
+def _migrate_to_v2(conn: sqlite3.Connection) -> None:
+    conn.executescript(_SCHEMA_V2)
+
+
 MIGRATIONS: dict[int, Callable[[sqlite3.Connection], None]] = {
     1: _migrate_to_v1,
+    2: _migrate_to_v2,
 }
 
 

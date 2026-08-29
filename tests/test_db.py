@@ -48,7 +48,9 @@ def test_crea_esquema_v1(db):
     version = db.execute(
         "SELECT value FROM meta WHERE key = 'schema_version'"
     ).fetchone()
-    assert int(version["value"]) == SCHEMA_VERSION == 1
+    # A freshly created DB is migrated through the whole chain to the current
+    # SCHEMA_VERSION (v1 then v2), so it carries both v1 and v2 tables.
+    assert int(version["value"]) == SCHEMA_VERSION
     tablas = {
         r["name"]
         for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")

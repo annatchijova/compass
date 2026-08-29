@@ -32,7 +32,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from . import domain, engine, seed_demo, storage, views
+from . import domain, engine, seed_demo, storage, trajectories, views
 from .audit_chain import verify_chain, verify_content
 from .db import EVIDENCE_TYPES, open_db
 from .llm import (Abductor, Extractor, LLMOutputError, Narrator,
@@ -319,6 +319,71 @@ def complete_experiment(experiment_id: int, body: CompleteIn,
         except domain.DomainError as exc:
             raise _domain_error(exc)
     return {"experiment_id": experiment_id, "generated_evidence_id": eid}
+
+
+# ---------------------------------------------------------- trayectorias ----
+# Navegación vocacional (design doc §5): a qué dedicarse como FIT entre
+# capacidades demostradas y lo que un camino requiere — sin porcentaje de
+# destino. El fit solo LEE hipótesis ya selladas; no mueve ningún índice.
+
+@app.get("/api/trajectories")
+def list_trajectories(uid: str = Depends(get_uid)) -> dict:
+    with _db(uid) as conn:
+        return {"trajectories": trajectories.list_trajectories(conn)}
+
+
+class TrajectoryIn(BaseModel):
+    name: str
+    description: str = ""
+
+
+@app.post("/api/trajectories")
+def add_trajectory(body: TrajectoryIn, uid: str = Depends(get_uid)) -> dict:
+    with _db(uid, write=True) as conn:
+        try:
+            tid = trajectories.trajectory_add(conn, name=body.name,
+                                              description=body.description)
+        except trajectories.TrajectoryError as exc:
+            raise _domain_error(exc)
+    return {"trajectory_id": tid}
+
+
+class RequirementIn(BaseModel):
+    hypothesis_id: int
+    label: str
+
+
+@app.post("/api/trajectories/{trajectory_id}/requirements")
+def add_requirement(trajectory_id: int, body: RequirementIn,
+                    uid: str = Depends(get_uid)) -> dict:
+    with _db(uid, write=True) as conn:
+        try:
+            rid = trajectories.requirement_add(
+                conn, trajectory_id=trajectory_id,
+                hypothesis_id=body.hypothesis_id, label=body.label,
+            )
+        except trajectories.TrajectoryError as exc:
+            raise _domain_error(exc)
+    return {"requirement_id": rid}
+
+
+@app.get("/api/trajectories/{trajectory_id}/fit")
+def trajectory_fit(trajectory_id: int, uid: str = Depends(get_uid)) -> dict:
+    with _db(uid) as conn:
+        try:
+            return trajectories.trajectory_fit(conn, trajectory_id)
+        except trajectories.TrajectoryError as exc:
+            raise HTTPException(status_code=404, detail=str(exc))
+
+
+@app.get("/api/trajectories/discriminate")
+def discriminate(a: int, b: int, uid: str = Depends(get_uid)) -> dict:
+    """Qué capacidad conviene testear para separar las trayectorias a y b."""
+    with _db(uid) as conn:
+        try:
+            return trajectories.discriminating_requirements(conn, a, b)
+        except trajectories.TrajectoryError as exc:
+            raise HTTPException(status_code=404, detail=str(exc))
 
 
 @app.post("/api/recompute")

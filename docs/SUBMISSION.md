@@ -3,8 +3,9 @@
 Paste-ready text for Devpost. Fill the _bracketed_ items after deploy.
 
 - **Category:** Collaborative Partner
-- **Repository:** _<repo URL>_
-- **Live URL:** _<Cloud Run URL>_
+- **Repository:** https://github.com/annatchijova/compass
+- **Live web app:** https://compass-web-1028999311218.us-central1.run.app
+- **Live backend API (Gemini/Vertex on Cloud Run):** https://compass-1028999311218.us-central1.run.app
 - **Demo video (~4 min):** _<video URL>_
 
 ## Inspiration

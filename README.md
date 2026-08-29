@@ -34,7 +34,7 @@ The three mandatory boxes, all checked:
   ([`/health`](https://compass-1028999311218.us-central1.run.app/health) ·
   [`/api/state`](https://compass-1028999311218.us-central1.run.app/api/state) ·
   [`/docs`](https://compass-1028999311218.us-central1.run.app/docs))
-- **Live web app:** _compass-web (Cloud Run) — deploying_
+- **Live web app (Cloud Run):** https://compass-web-1028999311218.us-central1.run.app
 - **Demo video:** _to be filled_
 - **Architecture diagram:** below, and in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 

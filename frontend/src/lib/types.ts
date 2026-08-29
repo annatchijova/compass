@@ -30,6 +30,7 @@ export interface Health {
   seeded?: boolean;
   chain_linkage_ok?: boolean;
   chain_integrity_ok?: boolean;
+  chain_content_ok?: boolean;
 }
 
 export interface StateHypothesis {
@@ -56,9 +57,14 @@ export interface CompassState {
   next_step: NextStep;
 }
 
+export interface Coverage {
+  validated_unlinked: number;
+}
+
 export interface StateResponse {
   state: CompassState;
   seal: string;
+  coverage?: Coverage;
 }
 
 export interface Evidence {
@@ -117,6 +123,7 @@ export interface ChainResponse {
   entries: ChainEntry[];
   linkage_ok: boolean;
   integrity_ok: boolean;
+  content_ok?: boolean;
   issues: unknown[];
 }
 

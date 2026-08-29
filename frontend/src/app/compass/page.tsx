@@ -18,6 +18,7 @@ import {
   Wand2,
   GitBranch,
   Plus,
+  Link2,
 } from "lucide-react";
 import * as api from "@/lib/api";
 import { ApiError } from "@/lib/api";
@@ -134,6 +135,7 @@ export default function CompassDashboard() {
 
   const s = state?.state;
   const visibleEvidence = (evidence ?? []).filter((e) => e.deleted !== 1);
+  const unlinked = state?.coverage?.validated_unlinked ?? 0;
 
   return (
     <section className="mx-auto max-w-7xl px-4 pb-10 pt-6">
@@ -155,7 +157,9 @@ export default function CompassDashboard() {
             {chain && (
               <span
                 className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${
-                  chain.linkage_ok && chain.integrity_ok
+                  chain.linkage_ok &&
+                  chain.integrity_ok &&
+                  chain.content_ok !== false
                     ? "bg-status-corroboradaBg text-status-corroborada"
                     : "bg-status-debilitadaBg text-status-debilitada"
                 }`}
@@ -164,6 +168,12 @@ export default function CompassDashboard() {
                 {t("dash.chainPrefix")} {t("dash.chain.linkage")}{" "}
                 {chain.linkage_ok ? "✓" : "✗"} {t("dash.chain.integrity")}{" "}
                 {chain.integrity_ok ? "✓" : "✗"}
+                {chain.content_ok !== undefined && (
+                  <>
+                    {" "}
+                    {t("dash.chain.content")} {chain.content_ok ? "✓" : "✗"}
+                  </>
+                )}
               </span>
             )}
           </div>
@@ -235,6 +245,14 @@ export default function CompassDashboard() {
             subtitle={t("panel.evidence.subtitle")}
             icon={ClipboardList}
           >
+            {/* Honest disclosure, not an alarm: validated evidence that isn't
+                linked to any hypothesis does not count until linked. */}
+            {unlinked > 0 && (
+              <p className="mb-3 flex items-start gap-1.5 text-[12px] leading-relaxed text-ink-500">
+                <Link2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-400" />
+                {t("coverage.unlinked", { n: unlinked })}
+              </p>
+            )}
             {visibleEvidence.length > 0 ? (
               <div className="space-y-2">
                 {visibleEvidence.map((e) => (
@@ -271,6 +289,7 @@ export default function CompassDashboard() {
                 entries={chain.entries}
                 linkageOk={chain.linkage_ok}
                 integrityOk={chain.integrity_ok}
+                contentOk={chain.content_ok}
               />
             ) : (
               <Empty>{t("panel.chain.empty")}</Empty>

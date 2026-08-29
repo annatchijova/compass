@@ -59,6 +59,7 @@ const dict = {
     "dash.seal": "seal",
     "dash.chain.linkage": "linkage",
     "dash.chain.integrity": "integrity",
+    "dash.chain.content": "content",
     "dash.chainPrefix": "chain:",
     "dash.recompute": "Recompute & reseal",
 
@@ -80,6 +81,8 @@ const dict = {
     "panel.evidence.title": "Evidence ledger",
     "panel.evidence.subtitle": "Nothing counts until it is validated",
     "panel.evidence.empty": "No evidence recorded yet.",
+    "coverage.unlinked":
+      "{n} validated evidence not yet linked to any hypothesis — it does not count until linked.",
 
     "panel.extract.title": "Narrative → signals",
     "panel.extract.subtitle":
@@ -122,6 +125,7 @@ const dict = {
     // Audit chain component
     "chain.linkage": "linkage",
     "chain.integrity": "integrity",
+    "chain.content": "content",
     "chain.entries": "entries",
     "chain.prev": "prev",
     "chain.emptyTitle": "No ledger entries yet",
@@ -259,6 +263,7 @@ const dict = {
     "dash.seal": "sello",
     "dash.chain.linkage": "encadenado",
     "dash.chain.integrity": "integridad",
+    "dash.chain.content": "contenido",
     "dash.chainPrefix": "cadena:",
     "dash.recompute": "Recalcular y resellar",
 
@@ -280,6 +285,8 @@ const dict = {
     "panel.evidence.title": "Ledger de evidencia",
     "panel.evidence.subtitle": "Nada cuenta hasta que se valida",
     "panel.evidence.empty": "Todavía no hay evidencia registrada.",
+    "coverage.unlinked":
+      "{n} evidencia(s) validada(s) sin vincular a ninguna hipótesis — no cuenta hasta vincularla.",
 
     "panel.extract.title": "Narrativa → señales",
     "panel.extract.subtitle":
@@ -322,6 +329,7 @@ const dict = {
     // Audit chain component
     "chain.linkage": "encadenado",
     "chain.integrity": "integridad",
+    "chain.content": "contenido",
     "chain.entries": "entradas",
     "chain.prev": "prev",
     "chain.emptyTitle": "Todavía no hay entradas en el ledger",

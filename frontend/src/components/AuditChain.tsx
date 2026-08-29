@@ -11,10 +11,12 @@ export function AuditChain({
   entries,
   linkageOk,
   integrityOk,
+  contentOk,
 }: {
   entries: ChainEntry[];
   linkageOk: boolean;
   integrityOk: boolean;
+  contentOk?: boolean;
 }) {
   const { t } = useI18n();
 
@@ -34,6 +36,9 @@ export function AuditChain({
       <div className="flex flex-wrap items-center gap-2">
         <Verdict ok={linkageOk} label={t("chain.linkage")} />
         <Verdict ok={integrityOk} label={t("chain.integrity")} />
+        {contentOk !== undefined && (
+          <Verdict ok={contentOk} label={t("chain.content")} />
+        )}
         <span className="ml-auto text-[11px] text-ink-400">
           {entries.length} {t("chain.entries")}
         </span>

@@ -13,7 +13,7 @@ import json
 import os
 import sys
 
-from . import domain, engine, views
+from . import domain, engine, trajectories, views
 from .audit_chain import verify_chain
 from .db import open_db
 from .llm import Narrator, backend_from_env
@@ -163,6 +163,31 @@ def cmd_compass(args):
         print(f"\n[seal: {sealed['seal']}]")
 
 
+def cmd_traj_add(args):
+    conn = open_db(_db_path(args))
+    tid = trajectories.trajectory_add(conn, name=args.nombre,
+                                      description=args.desc or "")
+    print(f"trayectoria #{tid} registrada")
+
+
+def cmd_traj_req(args):
+    conn = open_db(_db_path(args))
+    rid = trajectories.requirement_add(conn, trajectory_id=args.trayectoria,
+                                       hypothesis_id=args.hipotesis,
+                                       label=args.label)
+    print(f"requisito #{rid} agregado a la trayectoria #{args.trayectoria}")
+
+
+def cmd_traj_fit(args):
+    conn = open_db(_db_path(args))
+    _print(trajectories.trajectory_fit(conn, args.id))
+
+
+def cmd_traj_discriminate(args):
+    conn = open_db(_db_path(args))
+    _print(trajectories.discriminating_requirements(conn, args.a, args.b))
+
+
 def cmd_verify(args):
     conn = open_db(_db_path(args))
     report = verify_chain(conn)
@@ -265,6 +290,24 @@ def build_parser() -> argparse.ArgumentParser:
     cp.add_argument("--narrar", action="store_true",
                     help="narrar con el backend de COMPASS_BACKEND (fake por defecto)")
     cp.set_defaults(fn=cmd_compass)
+
+    tr = sub.add_parser("traj", help="trayectorias: fit vocacional").add_subparsers(required=True)
+    t1 = tr.add_parser("add", help="registrar una trayectoria")
+    t1.add_argument("nombre")
+    t1.add_argument("--desc", default="")
+    t1.set_defaults(fn=cmd_traj_add)
+    t2 = tr.add_parser("req", help="agregar una capacidad-requisito")
+    t2.add_argument("--trayectoria", type=int, required=True)
+    t2.add_argument("--hipotesis", type=int, required=True)
+    t2.add_argument("--label", required=True)
+    t2.set_defaults(fn=cmd_traj_req)
+    t3 = tr.add_parser("fit", help="fit determinístico de una trayectoria")
+    t3.add_argument("id", type=int)
+    t3.set_defaults(fn=cmd_traj_fit)
+    t4 = tr.add_parser("discriminate", help="qué capacidad separa dos trayectorias")
+    t4.add_argument("--a", type=int, required=True)
+    t4.add_argument("--b", type=int, required=True)
+    t4.set_defaults(fn=cmd_traj_discriminate)
 
     sub.add_parser("verify",
                    help="verificar la cadena (verificador interno)").set_defaults(fn=cmd_verify)

@@ -144,11 +144,22 @@ no credential and no cloud, using a role-aware `demo` backend.
 ### 1. The core cycle (CLI, offline)
 
 ```bash
-python3 -m pytest                          # 100 tests
+python3 -m pytest                          # 119 tests
 PYTHONPATH=src python3 -m compass init     # then: person, hyp, evidence, link,
-                                           # exp, recompute, compass, verify ...
+                                           # exp, recompute, compass, traj, verify ...
 python3 tools/verify_chain.py compass.db   # independent, stdlib-only verifier
 ```
+
+**Trajectories (vocational fit).** "What to dedicate yourself to" is treated as
+a *fit* between demonstrated capabilities and what a path requires — never a
+destiny percentage. A trajectory is a set of capability-requirements, each
+backed by a hypothesis; `traj fit` projects, deterministically from the sealed
+hypotheses, which requirements are met / supported / open / against / discarded
+(counts, no probability), and `traj discriminate` names the cheapest open
+capability whose experiment would separate two paths. It reuses the same
+evidence and experiment machinery; it reads sealed hypotheses and moves no
+index. See [`docs/ATTRIBUTIONS.md`](docs/ATTRIBUTIONS.md) for the validated,
+openly-licensed instruments (IPIP, O*NET) the intake layer will draw on.
 
 `tools/verify_chain.py` re-implements the seal spec on purpose, so
 confirming the audit chain does not require trusting the code that wrote it.

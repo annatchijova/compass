@@ -1,0 +1,7 @@
+# COMPASS web + agent layer (Cloud Run). The deterministic CORE is
+# stdlib-only by design; these are only for the HTTP API and the ADK agent.
+# Pins mirror the proven VIGIA (annaconda) Cloud Run deployment.
+fastapi==0.136.3
+uvicorn[standard]==0.47.0
+google-adk==2.1.0
+google-genai==1.75.0

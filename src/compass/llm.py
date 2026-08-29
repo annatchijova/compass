@@ -285,6 +285,137 @@ class AnthropicBackend:
             ) from exc
 
 
+class DemoBackend:
+    """Backend consciente-de-rol para el demo offline (sin credencial).
+
+    A diferencia de FakeBackend (una sola respuesta fija, pensada para los
+    tests de arquitectura), este mira el system prompt e infiere el rol,
+    devolviendo JSON VÁLIDO para cada uno: candidatos para el extractor,
+    hipótesis rivales para el abductor, diseño para el experimento, prosa
+    para el narrador. Así la URL hosteada demuestra el ciclo completo aun
+    sin Gemini configurado.
+
+    Sigue SIN autoridad: sus candidatos nacen pendientes de validación y
+    sus números no existen — los índices los sella el motor. Es el default
+    del contenedor; el deploy lo reemplaza por `gemini` (modelo obligatorio).
+    """
+
+    def complete(self, system: str, user: str) -> str:
+        if system == EXTRACTOR_SYSTEM:
+            snippet = (user or "").strip().replace("\n", " ")[:160] or "…"
+            return json.dumps([
+                {"señal": "Vuelve por cuenta propia a una actividad sin que "
+                          "nadie se lo pida (retorno espontáneo).",
+                 "cita": snippet},
+                {"señal": "Sostiene esfuerzo voluntario prolongado cuando el "
+                          "problema la absorbe.",
+                 "cita": snippet},
+            ], ensure_ascii=False)
+        if system == ABDUCTOR_HYPOTHESES_SYSTEM:
+            return json.dumps([
+                {"statement": "Si tuviera capacidad de diseño de sistemas, el "
+                              "retorno espontáneo a rediseñar el núcleo sería "
+                              "esperable."},
+                {"statement": "Si fuera ejecución rápida y no diseño, el retorno "
+                              "se explicaría por presión de deadline, no por la "
+                              "actividad en sí."},
+            ], ensure_ascii=False)
+        if system == ABDUCTOR_EXPERIMENT_SYSTEM:
+            return json.dumps({
+                "design": "Diseñar desde cero una arquitectura nueva sin andamio "
+                          "ajeno y que un tercero la audite.",
+                "success_criterion": "El revisor confirma que cierra sola y "
+                                     "sostiene sus invariantes bajo crítica.",
+                "failure_criterion": "Depende de estructura provista por otro o "
+                                     "colapsa al primer contraejemplo.",
+            }, ensure_ascii=False)
+        return ("Narración de demostración: los números del resumen están "
+                "sellados por el motor determinístico y este texto no puede "
+                "alterarlos. El siguiente paso indicado es el que conviene "
+                "ejecutar; el sistema no adula, ayuda a ver.")
+
+
+class GeminiBackend:
+    """Backend Google Gemini: Gemini API (key) o Vertex AI, mismo cliente.
+
+    Usa el SDK oficial ``google-genai`` (importado PEREZOSAMENTE: el core
+    de COMPASS sigue siendo stdlib pura; solo quien elige este backend
+    paga la dependencia). Un único backend cubre los dos caminos que el
+    hackathon acepta para el modelo obligatorio:
+
+    - Gemini API: se lee la key de ``GEMINI_API_KEY`` (o ``GOOGLE_API_KEY``)
+      en el momento de uso; no se loguea ni se persiste (secret-lifecycle).
+    - Vertex AI: con ``GOOGLE_GENAI_USE_VERTEXAI=TRUE`` se usa ADC
+      (Application Default Credentials) contra ``GOOGLE_CLOUD_PROJECT`` y
+      ``GOOGLE_CLOUD_LOCATION`` (default ``global``: los modelos Gemini 3.x
+      se sirven en el endpoint ``global``, no en uno regional — un region
+      cualquiera devuelve 404). Estas son las variables NATIVAS del SDK,
+      las mismas que usa el deploy probado de VIGÍA en Cloud Run.
+
+    Invariante de arquitectura intacto: este backend solo produce PROSA o
+    candidatos que la persona valida. Ningún número sellado sale de acá.
+    ``temperature=0`` fija la redacción tanto como el modelo lo permita;
+    aunque variara, jamás podría mover un índice ya sellado — ese es el
+    test ``test_backend_intercambiable_no_cambia_numeros``.
+
+    ESQUELETO hasta la primera corrida real: el contrato está testeado vía
+    FakeBackend; la forma exacta de la respuesta de la API se confirma en
+    la primera llamada en vivo (punto ciego declarado en el README).
+    """
+
+    def __init__(self, model: str = "gemini-2.5-flash",
+                 timeout: int = 60, max_output_tokens: int = 2048):
+        self._model = model
+        self._timeout = timeout
+        self._max_output_tokens = max_output_tokens
+
+    def _client(self):
+        try:
+            from google import genai
+        except ImportError as exc:  # pragma: no cover - depende del entorno
+            raise RuntimeError(
+                "el backend gemini necesita el SDK 'google-genai'; "
+                "instalá el extra: pip install 'compass[gemini]'"
+            ) from exc
+        if os.environ.get("GOOGLE_GENAI_USE_VERTEXAI", "").upper() in ("TRUE", "1"):
+            project = os.environ.get("GOOGLE_CLOUD_PROJECT")
+            location = os.environ.get("GOOGLE_CLOUD_LOCATION", "global")
+            if not project:
+                raise RuntimeError(
+                    "GOOGLE_GENAI_USE_VERTEXAI exige GOOGLE_CLOUD_PROJECT; "
+                    "no se intenta ninguna llamada sin proyecto"
+                )
+            return genai.Client(vertexai=True, project=project, location=location)
+        api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+        if not api_key:
+            raise RuntimeError(
+                "falta GEMINI_API_KEY (o GOOGLE_API_KEY); "
+                "no se intenta ninguna llamada sin credencial"
+            )
+        return genai.Client(api_key=api_key)
+
+    def complete(self, system: str, user: str) -> str:
+        from google.genai import types
+        client = self._client()
+        try:
+            resp = client.models.generate_content(
+                model=self._model,
+                contents=user,
+                config=types.GenerateContentConfig(
+                    system_instruction=system,
+                    temperature=0,
+                    max_output_tokens=self._max_output_tokens,
+                    http_options=types.HttpOptions(timeout=self._timeout * 1000),
+                ),
+            )
+        except Exception as exc:  # frontera de red: contexto claro, sin credencial
+            raise RuntimeError(f"error llamando a Gemini: {exc}") from exc
+        text = getattr(resp, "text", None)
+        if not isinstance(text, str) or not text.strip():
+            raise RuntimeError("respuesta de Gemini vacía o con forma inesperada")
+        return text
+
+
 class OllamaBackend:
     """Backend Ollama local. ESQUELETO: NO PROBADO EN VIVO."""
 
@@ -317,12 +448,22 @@ class OllamaBackend:
 
 
 def backend_from_env() -> Backend:
-    """Elige backend por COMPASS_BACKEND: fake (default) | anthropic | ollama."""
+    """Elige backend por COMPASS_BACKEND: fake (default) | gemini | anthropic | ollama.
+
+    'gemini' es el backend del hackathon (modelo obligatorio); 'fake' es
+    el default para que el ciclo corra offline y en tests sin credencial.
+    """
     kind = os.environ.get("COMPASS_BACKEND", "fake")
     if kind == "fake":
         return FakeBackend(
             "Estado narrado por el backend fake: los números del resumen "
             "están sellados y este texto no puede alterarlos."
+        )
+    if kind == "demo":
+        return DemoBackend()
+    if kind == "gemini":
+        return GeminiBackend(
+            model=os.environ.get("COMPASS_MODEL", "gemini-2.5-flash")
         )
     if kind == "anthropic":
         return AnthropicBackend(

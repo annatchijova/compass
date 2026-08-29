@@ -5,9 +5,18 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "compass"
 version = "0.1.0"
-description = "Sistema de navegación personal adaptativo. Núcleo determinístico, LLM sin autoridad. Nombre provisional."
+description = "Adaptive personal-navigation partner. Deterministic core, LLM without authority."
 requires-python = ">=3.10"
-license = { text = "TBD" }
+license = "Apache-2.0"
+
+[project.optional-dependencies]
+# The core is stdlib-only. These extras add the hackathon web + agent layer.
+api = ["fastapi>=0.115", "uvicorn[standard]>=0.30"]
+gemini = ["google-genai>=1.0"]
+adk = ["google-adk>=1.0", "google-genai>=1.0"]
+
+[project.scripts]
+compass = "compass.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -1,0 +1,12 @@
+# The backend Cloud Run build does not need the frontend, git, or caches.
+.git/
+frontend/
+node_modules/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+*.db
+*.db-wal
+*.db-shm

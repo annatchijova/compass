@@ -169,6 +169,74 @@ def verify_chain(conn: sqlite3.Connection) -> VerifyReport:
     return verify_rows(fetch_all_asc(conn))
 
 
+# ---------------------------------------------------------------------------
+# Verificación de contenido referenciado (Red Team Round 1, findings D1/D2).
+# Ata el contenido vivo al content_hash SELLADO EN LA CADENA por evidence_id,
+# no a la columna mutable evidence.content_hash. La API la usa para que el
+# badge del dashboard cubra contenido, no solo linkage/integrity.
+# ---------------------------------------------------------------------------
+
+@dataclass
+class ContentReport:
+    content_ok: bool
+    tombstones: int = 0
+    issues: list[dict] = field(default_factory=list)
+
+
+def _tagged_dict_get_int(tagged: object, key: str) -> int | None:
+    """Lee un entero para `key` de un dict canónico etiquetado.
+
+    payload_c14n = ["c14n", cv, tag(payload)]; tag(dict) = ["dict", [[k, tag(v)]…]]
+    y tag(int) = ["int", "<n>"]. Recupera el evidence_id sellado del payload.
+    """
+    if not (isinstance(tagged, list) and len(tagged) == 2 and tagged[0] == "dict"):
+        return None
+    for pair in tagged[1]:
+        if isinstance(pair, list) and len(pair) == 2 and pair[0] == key:
+            v = pair[1]
+            if isinstance(v, list) and len(v) == 2 and v[0] == "int":
+                return int(v[1])
+    return None
+
+
+def _sealed_content_hashes_by_evidence(conn: sqlite3.Connection) -> dict:
+    sealed: dict = {}
+    for row in conn.execute("SELECT payload_c14n, content_hashes FROM audit_chain"):
+        hashes = json.loads(row["content_hashes"])
+        if not hashes:
+            continue
+        envelope = json.loads(row["payload_c14n"])
+        eid = _tagged_dict_get_int(envelope[2], "evidence_id") if len(envelope) == 3 else None
+        if eid is None:
+            continue
+        sealed.setdefault(eid, set()).update(hashes)
+    return sealed
+
+
+def verify_content(conn: sqlite3.Connection) -> ContentReport:
+    """Comprueba que el contenido vivo de cada evidencia siga siendo el que la
+    cadena selló. Tombstones (deleted=1) se cuentan, no son error."""
+    sealed = _sealed_content_hashes_by_evidence(conn)
+    issues: list[dict] = []
+    tombstones = 0
+    for ev in conn.execute(
+        "SELECT id, content, content_hash, deleted FROM evidence"
+    ):
+        if ev["deleted"]:
+            tombstones += 1
+            continue
+        got = hashlib.sha256(ev["content"].encode("utf-8")).hexdigest()
+        s = sealed.get(ev["id"])
+        if s is None:
+            issues.append({"evidence_id": ev["id"], "kind": "content",
+                           "detail": "sin content_hash sellado en la cadena"})
+        elif got not in s:
+            issues.append({"evidence_id": ev["id"], "kind": "content",
+                           "detail": "content no coincide con el hash sellado "
+                           "en la cadena (edición de la fila referenciada)"})
+    return ContentReport(content_ok=not issues, tombstones=tombstones, issues=issues)
+
+
 def _verify_tail(conn: sqlite3.Connection, n: int = TAIL_CHECK_N) -> VerifyReport | None:
     """Verifica las últimas n entradas antes de anexar.
 

@@ -160,11 +160,25 @@ def validate_experiment_design(raw: str) -> dict:
             ("design", "success_criterion", "failure_criterion")}
 
 
+# El índice es acumulación de evidencia bajo reglas versionadas, NO una
+# probabilidad: la prosa jamás debe presentarlo como porcentaje. Guardia
+# determinística (Red Team Round 1, finding A): rechaza cualquier porcentaje
+# en la narración, fail-closed. No es un auditor semántico completo —no
+# atrapa toda afirmación contrabandeada— pero hace cumplir el "nunca como
+# porcentaje" que el sistema promete.
+_PERCENT_RE = re.compile(r"\d\s*(%|percent|por\s+ciento)", re.IGNORECASE)
+
+
 def validate_prose(raw: str) -> str:
     if not isinstance(raw, str) or not raw.strip():
         raise LLMOutputError("narración vacía")
     if len(raw) > MAX_PROSE:
         raise LLMOutputError(f"narración excede {MAX_PROSE} caracteres")
+    if _PERCENT_RE.search(raw):
+        raise LLMOutputError(
+            "la narración presenta un porcentaje: el índice es acumulación "
+            "de evidencia, NO una probabilidad, y jamás se expresa como %"
+        )
     return raw.strip()
 
 

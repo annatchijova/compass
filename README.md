@@ -245,6 +245,12 @@ A known limitation is an asset. What this project does **not** yet claim:
 - **The engine weights are PROVISIONAL** (`decision_record` #1 records the
   reopening condition: an audit with real data). They unblock the skeleton;
   they are not tuned.
+- **Anti-flattery holds over the *linked* graph, not the whole picture**
+  (Red Team Round 1, finding C). Contradicting evidence weighs more only where
+  it is linked; unlinked disconfirming evidence simply does not count, so an
+  incomplete graph can inflate a hypothesis by omission. There is no fully
+  deterministic fix; the mitigation is to surface coverage (`/api/state`
+  reports `validated_unlinked`) so the gap is visible, not hidden.
 - **Persistence is snapshot-based, single-writer.** Per-user SQLite lives on
   local disk and is snapshotted to Cloud Storage after each write (restored on
   access). It is sized for one writer per compass (a person clicking through

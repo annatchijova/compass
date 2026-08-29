@@ -94,3 +94,121 @@ def test_bprime_agent_has_no_scoring_authority():
     # It keeps its propose/read/narrate tools.
     assert "get_compass_state" in tool_names
     assert "add_hypothesis" in tool_names
+
+
+# --------------------------------------------------------------- A ---------
+
+class _FixedBackend:
+    def __init__(self, text: str):
+        self._text = text
+
+    def complete(self, system: str, user: str) -> str:
+        return self._text
+
+
+def test_a_narrator_rejects_percentage_prose():
+    """FINDING A (partial fix): the index is an accumulation of evidence, NEVER
+    a probability/percentage. The narrator must not present a percentage; prose
+    that does is rejected at the boundary, fail-closed."""
+    import pytest
+
+    from compass.llm import LLMOutputError, Narrator
+
+    for lying in ("Your design capability is 97 percent — essentially certain.",
+                  "Confidence level: 50%.",
+                  "Estás en un 80 por ciento de certeza."):
+        with pytest.raises(LLMOutputError):
+            Narrator(_FixedBackend(lying)).narrate({"state_seal": "x"})
+
+
+def test_a_clean_prose_still_passes():
+    from compass.llm import Narrator
+
+    ok = ("Your design hypothesis is corroborated by a discriminating "
+          "experiment; the rival execution hypothesis is weakened. The next "
+          "step is to design an experiment for the hypothesis with least evidence.")
+    assert Narrator(_FixedBackend(ok)).narrate({"state_seal": "x"}) == ok
+
+
+# --------------------------------------------------------------- D2 --------
+
+def test_d2_verify_content_binds_to_sealed_chain(tmp_path):
+    """FINDING D2: the in-package path (used by the API) must also verify
+    referenced content against the chain-sealed hash, so the dashboard badge
+    can cover content — not only chain linkage/integrity."""
+    from compass.audit_chain import verify_content
+
+    db = str(tmp_path / "d2.db")
+    _seed(db)
+    conn = open_db(db)
+    assert verify_content(conn).content_ok is True
+
+    forged = '{"text":"FORGED"}'
+    new_hash = hashlib.sha256(forged.encode("utf-8")).hexdigest()
+    with conn:
+        conn.execute("UPDATE evidence SET content = ?, content_hash = ? WHERE id = 1",
+                     (forged, new_hash))
+    rep = verify_content(conn)
+    conn.close()
+    assert rep.content_ok is False and rep.issues, (
+        "in-package content verification must catch the dual-column forge"
+    )
+
+
+def test_d2_api_surfaces_content_ok(tmp_path, monkeypatch):
+    """The dashboard's data source (/api/chain, /health) must report content
+    integrity, not only chain linkage/integrity."""
+    monkeypatch.setenv("COMPASS_DATA_DIR", str(tmp_path / "d2data"))
+    monkeypatch.setenv("COMPASS_BACKEND", "demo")
+    monkeypatch.delenv("COMPASS_GCS_BUCKET", raising=False)
+    import importlib
+
+    from compass import storage as storage_module
+    importlib.reload(storage_module)
+    from compass import api as api_module
+    importlib.reload(api_module)
+    from fastapi.testclient import TestClient
+
+    with TestClient(api_module.app) as c:
+        assert c.get("/api/chain").json()["content_ok"] is True
+        assert c.get("/health").json()["chain_content_ok"] is True
+
+        forged = '{"text":"FORGED"}'
+        dbp = storage_module.local_path(storage_module.DEMO_UID)
+        conn = open_db(dbp)
+        with conn:
+            conn.execute("UPDATE evidence SET content = ?, content_hash = ? WHERE id = 1",
+                         (forged, hashlib.sha256(forged.encode("utf-8")).hexdigest()))
+        conn.close()
+        assert c.get("/api/chain").json()["content_ok"] is False
+
+
+# --------------------------------------------------------------- C ---------
+
+def test_c_state_surfaces_unlinked_coverage(tmp_path, monkeypatch):
+    """FINDING C: anti-flattery is defeated by omission (unlinked contradicting
+    evidence does not count). The state surfaces the unlinked count so the gap
+    is visible; this changes no index (display-only, outside the seal)."""
+    monkeypatch.setenv("COMPASS_DATA_DIR", str(tmp_path / "cdata"))
+    monkeypatch.setenv("COMPASS_BACKEND", "demo")
+    monkeypatch.delenv("COMPASS_GCS_BUCKET", raising=False)
+    import importlib
+
+    from compass import storage as storage_module
+    importlib.reload(storage_module)
+    from compass import api as api_module
+    importlib.reload(api_module)
+    from fastapi.testclient import TestClient
+
+    with TestClient(api_module.app) as c:
+        before = c.get("/api/state").json()
+        base = before["coverage"]["validated_unlinked"]
+        idx_before = {h["id"]: h["index"] for h in before["state"]["hypotheses"]}
+        c.post("/api/evidence", json={"evidence_type": "self_report", "source": "t",
+                                      "content": {"text": "unlinked"}, "validated": True})
+        after = c.get("/api/state").json()
+        assert after["coverage"]["validated_unlinked"] == base + 1
+        # Unlinked evidence moves NO hypothesis index — that is exactly the
+        # gap C names: it does not count until linked. Coverage surfaces it.
+        idx_after = {h["id"]: h["index"] for h in after["state"]["hypotheses"]}
+        assert idx_after == idx_before

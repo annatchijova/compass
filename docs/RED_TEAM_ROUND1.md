@@ -55,9 +55,9 @@ negative-control mutations in `tests/` were noted but not re-audited this round.
 |----|----------|-------|--------|---------|
 | B′ | High | CONFIRMED BY INDUCTION | `agent/agent.py`, `domain.py`, `engine.py` | **FIXED.** The ADK agent set an arbitrary *sealed* index by choosing the evidence→hypothesis graph and its supports/contradicts direction, then calling recompute — no human step. `link_evidence` removed from the agent. |
 | D1 | High | CONFIRMED BY INDUCTION | `tools/verify_chain.py` | **FIXED.** Referenced-content tamper-evidence was evaded by editing `evidence.content` and `evidence.content_hash` together, because verifiers compared live content to the **mutable table column**, not to the `content_hashes` **sealed in the chain**. Verifier now binds to the sealed value. |
-| C | Medium | CONFIRMED (code fact) | `engine.py`, `domain.py` | The anti-flattery factor is defeated by omission: unlinked contradicting evidence simply does not count; nothing enforces graph completeness. |
-| A | Low–Med | CONFIRMED BY INDUCTION (declared gap) | `llm.py`, `views.py` | Narrator prose can state a number/verdict contradicting the seal; `validate_prose` checks only length. Acknowledged as a v2 gap in the design. |
-| D2 | Low | CODE FACT | `audit_chain.py`, `api.py` | The in-package `verify_chain` used by `/health` and `/api/chain` never checks content, so the dashboard "integrity ✓" badge does not cover content tampering. |
+| C | Medium | CONFIRMED (code fact) | `engine.py`, `domain.py` | **MITIGATED.** The anti-flattery factor is defeated by omission: unlinked contradicting evidence does not count. `/api/state` now surfaces `validated_unlinked`; documented as a limitation. |
+| A | Low–Med | CONFIRMED BY INDUCTION (declared gap) | `llm.py`, `views.py` | **PARTIALLY FIXED.** Narrator prose could state a number contradicting the seal. `validate_prose` now rejects percentages (fail-closed); a full semantic auditor stays v2. |
+| D2 | Low | CODE FACT | `audit_chain.py`, `api.py` | **FIXED.** The API/dashboard path never checked content; `verify_content` added and surfaced on `/api/chain` and `/health`. |
 
 ---
 
@@ -265,10 +265,21 @@ full suite green at 105 tests):
    chain-sealed `content_hashes` per `evidence_id`, not to the mutable column.
    Tests: the three `test_d1_*`.
 
-**Backlog (recorded, not applied):**
+3. **D2 — FIXED.** `verify_content` added in-package (same sealed-binding as
+   D1) and surfaced on the API: `/api/chain` returns `content_ok` + content
+   issues, `/health` returns `chain_content_ok`. Tests:
+   `test_d2_verify_content_binds_to_sealed_chain`,
+   `test_d2_api_surfaces_content_ok`.
+4. **A — PARTIALLY FIXED.** `validate_prose` now rejects any percentage in the
+   narration (the index is never a probability): a deterministic, fail-closed
+   guard enforcing the documented "never a percentage" rule. It is *not* a full
+   semantic auditor — it does not catch every smuggled claim (e.g. an
+   unqualified "essentially certain"); that remains v2. Tests:
+   `test_a_narrator_rejects_percentage_prose`, `test_a_clean_prose_still_passes`.
+5. **C — MITIGATED (no deterministic fix exists).** `/api/state` now reports
+   `coverage.validated_unlinked` (display-only, outside the seal), so unlinked
+   disconfirming evidence is visible rather than silently absent. Documented as
+   a declared limitation in the README blind spots. Test:
+   `test_c_state_surfaces_unlinked_coverage`.
 
-3. **D2** — surface the (now fixed) content check on the API, or relabel the
-   dashboard badge as "chain linkage / integrity".
-4. **A** — implement the v2 narrative auditor, or template numbers into prose.
-5. **C** — surface unlinked-evidence coverage; document the omission limit
-   (no fully deterministic fix — an honest limitation).
+All five findings now addressed. Suite green at 110 tests.

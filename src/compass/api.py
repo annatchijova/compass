@@ -33,7 +33,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from . import domain, engine, seed_demo, storage, views
-from .audit_chain import verify_chain
+from .audit_chain import verify_chain, verify_content
 from .db import EVIDENCE_TYPES, open_db
 from .llm import (Abductor, Extractor, LLMOutputError, Narrator,
                   backend_from_env)
@@ -103,6 +103,7 @@ def health() -> dict:
     backend_kind = os.environ.get("COMPASS_BACKEND", "fake")
     with _db(storage.DEMO_UID) as conn:
         report = verify_chain(conn)
+        content = verify_content(conn)
     vertex = os.environ.get("GOOGLE_GENAI_USE_VERTEXAI", "").upper() in ("TRUE", "1")
     return {
         "status": "ok",
@@ -116,6 +117,7 @@ def health() -> dict:
         "persistence": storage.persistence_mode(),
         "chain_linkage_ok": report.linkage_ok,
         "chain_integrity_ok": report.integrity_ok,
+        "chain_content_ok": content.content_ok,
     }
 
 
@@ -123,9 +125,23 @@ def health() -> dict:
 
 @app.get("/api/state")
 def get_state(uid: str = Depends(get_uid)) -> dict:
-    """Estado sellado: el seal existe ANTES de cualquier narrador."""
+    """Estado sellado: el seal existe ANTES de cualquier narrador.
+
+    Agrega `coverage` (display-only, FUERA del sello): cuánta evidencia
+    validada no está vinculada a ninguna hipótesis. La anti-adulación pesa
+    sobre el grafo linkeado; evidencia sin linkear no cuenta, así que un
+    grafo incompleto puede inflar por omisión (Red Team Round 1, finding C).
+    Superficiar el faltante es la mitigación honesta; no cambia ningún índice.
+    """
     with _db(uid) as conn:
-        return views.sealed_state(conn)
+        sealed = views.sealed_state(conn)
+        unlinked = conn.execute(
+            "SELECT COUNT(*) AS n FROM evidence e WHERE e.validated = 1 "
+            "AND e.deleted = 0 AND NOT EXISTS (SELECT 1 FROM hypothesis_evidence he "
+            "WHERE he.evidence_id = e.id)"
+        ).fetchone()["n"]
+    sealed["coverage"] = {"validated_unlinked": unlinked}
+    return sealed
 
 
 @app.get("/api/evidence")
@@ -169,11 +185,13 @@ def get_chain(uid: str = Depends(get_uid)) -> dict:
             "ORDER BY seq ASC"
         ).fetchall()
         report = verify_chain(conn)
+        content = verify_content(conn)
     return {
         "entries": [dict(r) for r in rows],
         "linkage_ok": report.linkage_ok,
         "integrity_ok": report.integrity_ok,
-        "issues": report.issues,
+        "content_ok": content.content_ok,
+        "issues": report.issues + content.issues,
     }
 
 

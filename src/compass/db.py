@@ -26,6 +26,7 @@ hueco visible; el content_hash y la cadena de auditoría lo recuerdan.
 from __future__ import annotations
 
 import sqlite3
+import time
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -245,8 +246,41 @@ CREATE INDEX idx_treq_hypothesis ON trajectory_requirement (hypothesis_id);
 """
 
 
+def _statements(script: str) -> list[str]:
+    """Parte un script DDL en sentencias completas.
+
+    `executescript` NO sirve dentro de una transacción: emite un COMMIT
+    implícito antes de correr el script, lo que soltaba el write lock que
+    `atomic()` había tomado y dejaba una ventana donde otra conexión veía
+    la tabla `meta` sin su fila schema_version (base a medio crear).
+    `sqlite3.complete_statement` corta como corta SQLite, así que un
+    punto y coma dentro de un literal no termina la sentencia.
+    """
+    stmts: list[str] = []
+    buf = ""
+    for line in script.splitlines(keepends=True):
+        buf += line
+        if sqlite3.complete_statement(buf):
+            stmts.append(buf.strip())
+            buf = ""
+    # Lo que sobra solo puede ser espacio o comentarios; una sentencia sin
+    # cerrar es un error del esquema, no algo para ignorar en silencio.
+    resto = "\n".join(
+        ln for ln in buf.splitlines()
+        if ln.strip() and not ln.strip().startswith("--")
+    )
+    if resto:
+        raise SchemaError(f"sentencia DDL sin cerrar en el esquema: {resto[:60]!r}")
+    return stmts
+
+
+def _run_script(conn: sqlite3.Connection, script: str) -> None:
+    for stmt in _statements(script):
+        conn.execute(stmt)
+
+
 def _migrate_to_v1(conn: sqlite3.Connection) -> None:
-    conn.executescript(_SCHEMA_V1)
+    _run_script(conn, _SCHEMA_V1)
     conn.execute(
         # Cada migrador fija SU versión de destino (1), no la global
         # SCHEMA_VERSION: acoplarlo a la global rompía la cadena de migración
@@ -263,7 +297,7 @@ def _migrate_to_v1(conn: sqlite3.Connection) -> None:
 # cuando exista, y el loader los aplicará en secuencia. Los datos
 # guardados por v1 deben cargar en v5.
 def _migrate_to_v2(conn: sqlite3.Connection) -> None:
-    conn.executescript(_SCHEMA_V2)
+    _run_script(conn, _SCHEMA_V2)
 
 
 MIGRATIONS: dict[int, Callable[[sqlite3.Connection], None]] = {
@@ -296,27 +330,72 @@ def ensure_schema(conn: sqlite3.Connection) -> int:
     un esquema que este código no conoce pueden no significar lo que
     este código asume.
     """
+    def _reject_future(v: int) -> None:
+        if v > SCHEMA_VERSION:
+            raise FutureSchemaError(
+                f"la base declara schema_version={v} pero este código "
+                f"conoce hasta {SCHEMA_VERSION}; actualizá el software antes "
+                "de abrir esta base (no se abre en modo best-effort)"
+            )
+
     version = _stored_version(conn)
-    if version > SCHEMA_VERSION:
-        raise FutureSchemaError(
-            f"la base declara schema_version={version} pero este código "
-            f"conoce hasta {SCHEMA_VERSION}; actualizá el software antes "
-            "de abrir esta base (no se abre en modo best-effort)"
-        )
-    while version < SCHEMA_VERSION:
-        target = version + 1
-        migrator = MIGRATIONS.get(target)
-        if migrator is None:
-            raise SchemaError(f"no hay migrador registrado hacia v{target}")
-        with atomic(conn):
+    _reject_future(version)
+    if version == SCHEMA_VERSION:
+        return version              # nada que migrar: no se toma write lock
+
+    # Migrar: primero el write lock, y RECIÉN adentro se relee la versión.
+    # Dos conexiones que abren la misma base nueva leen ambas version=0; sin
+    # la relectura, la perdedora repetía una migración que la ganadora ya
+    # había commiteado ("table meta already exists"). Toda la cadena va en
+    # UNA transacción: o la base queda en SCHEMA_VERSION, o no cambia.
+    with atomic(conn):
+        version = _stored_version(conn)
+        _reject_future(version)
+        while version < SCHEMA_VERSION:
+            target = version + 1
+            migrator = MIGRATIONS.get(target)
+            if migrator is None:
+                raise SchemaError(f"no hay migrador registrado hacia v{target}")
             migrator(conn)
             if target > 1:
                 conn.execute(
                     "UPDATE meta SET value = ? WHERE key = 'schema_version'",
                     (str(target),),
                 )
-        version = target
+            version = target
     return version
+
+
+def _journal_mode(conn: sqlite3.Connection) -> str:
+    return str(conn.execute("PRAGMA journal_mode").fetchone()[0]).lower()
+
+
+def _ensure_wal(conn: sqlite3.Connection, timeout_s: float = 5.0) -> None:
+    """Deja el archivo en WAL, tolerando que otra conexión llegue primero.
+
+    Cambiar journal_mode necesita un lock exclusivo momentáneo, y a
+    diferencia de una escritura común NO lo espera vía busy_timeout: si
+    varias conexiones abren la misma base recién creada a la vez, todas
+    menos una reciben "database is locked" y ninguna la ve todavía en WAL.
+    Lo que importa es el estado FINAL del archivo, así que se reintenta
+    dentro del mismo presupuesto que busy_timeout y se verifica el
+    resultado. Si al vencer sigue sin quedar en WAL, el error sube: correr
+    en otro journal_mode es una degradación que se declara, no se tapa.
+    """
+    last: sqlite3.OperationalError | None = None
+    deadline = time.monotonic() + timeout_s
+    while True:
+        try:
+            conn.execute("PRAGMA journal_mode = WAL")
+        except sqlite3.OperationalError as exc:
+            last = exc
+        if _journal_mode(conn) == "wal":
+            return
+        if time.monotonic() >= deadline:
+            raise last or SchemaError(
+                "no se pudo dejar la base en WAL y no quedó en WAL"
+            )
+        time.sleep(0.005)
 
 
 def open_db(path: str | Path) -> sqlite3.Connection:
@@ -328,6 +407,6 @@ def open_db(path: str | Path) -> sqlite3.Connection:
     creating = not Path(path).exists()
     conn = connect(path)
     if creating:
-        conn.execute("PRAGMA journal_mode = WAL")
+        _ensure_wal(conn)
     ensure_schema(conn)
     return conn

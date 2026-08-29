@@ -13,6 +13,7 @@ from compass.db import (
     SCHEMA_VERSION,
     FutureSchemaError,
     atomic,
+    ensure_schema,
     open_db,
     utc_now_iso,
 )
@@ -179,3 +180,49 @@ def test_atomic_reentrante(db):
         with atomic(db):  # participa, no anida BEGIN
             _insert_hypothesis(db)
     assert db.execute("SELECT COUNT(*) c FROM hypothesis").fetchone()["c"] == 1
+
+
+# --------------------------------------------- bootstrap concurrente -------
+
+def test_schema_bootstrap_is_atomic_under_concurrent_openers(tmp_path):
+    """Abrir una base NUEVA desde varias conexiones a la vez debe ser seguro.
+
+    Es exactamente el primer request de cada navegador nuevo contra el
+    servicio hosteado: el dashboard pide /api/state, /api/evidence y
+    /api/chain en paralelo y las tres abren la misma base recién creada.
+
+    Rojo antes del fix: `executescript` emite un COMMIT implícito, así que
+    soltaba el write lock que `atomic()` había tomado y dejaba ver la tabla
+    `meta` SIN su fila schema_version — una base a medio crear.
+    """
+    import threading
+
+    path = str(tmp_path / "race.db")
+    n = 4
+    barrier = threading.Barrier(n)
+    errors: list[str] = []
+
+    def opener() -> None:
+        barrier.wait()          # largan todas juntas
+        try:
+            conn = open_db(path)
+            assert ensure_schema(conn) == SCHEMA_VERSION
+            conn.close()
+        except Exception as exc:                      # noqa: BLE001
+            errors.append(f"{type(exc).__name__}: {exc}")
+
+    threads = [threading.Thread(target=opener) for _ in range(n)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert errors == [], f"abrir una base nueva en paralelo falló: {errors}"
+
+    # Y la base quedó íntegra, no a medio migrar.
+    conn = open_db(path)
+    assert ensure_schema(conn) == SCHEMA_VERSION
+    tables = {r[0] for r in conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table'")}
+    assert {"meta", "evidence", "hypothesis", "audit_chain"} <= tables
+    conn.close()

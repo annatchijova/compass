@@ -55,6 +55,45 @@ def compute_hash(row: sqlite3.Row) -> str:
     ).hexdigest()
 
 
+def _tagged_dict_get_int(tagged: object, key: str):
+    """Extract an integer value for `key` from a canonical tagged dict.
+
+    payload_c14n is ["c14n", <cv>, tag(payload)]; tag(dict) is
+    ["dict", [[k, tag(v)], ...]] and tag(int) is ["int", "<n>"]. This reads
+    the sealed evidence_id straight from the chain payload — stdlib only, no
+    dependency on the producing package.
+    """
+    if not (isinstance(tagged, list) and len(tagged) == 2 and tagged[0] == "dict"):
+        return None
+    for pair in tagged[1]:
+        if isinstance(pair, list) and len(pair) == 2 and pair[0] == key:
+            v = pair[1]
+            if isinstance(v, list) and len(v) == 2 and v[0] == "int":
+                return int(v[1])
+    return None
+
+
+def _sealed_hashes_by_evidence(rows) -> dict:
+    """Map evidence_id -> set of content hashes SEALED IN THE CHAIN for it.
+
+    These come from the tamper-evident audit_chain (content_hashes is inside
+    each row's hashed envelope), NOT from the mutable evidence.content_hash
+    column. Binding live content to this value is what makes editing the
+    referenced content detectable even when content_hash is edited to match.
+    """
+    sealed: dict = {}
+    for row in rows:
+        hashes = json.loads(row["content_hashes"])
+        if not hashes:
+            continue
+        envelope = json.loads(row["payload_c14n"])  # ["c14n", cv, tag(payload)]
+        eid = _tagged_dict_get_int(envelope[2], "evidence_id") if len(envelope) == 3 else None
+        if eid is None:
+            continue
+        sealed.setdefault(eid, set()).update(hashes)
+    return sealed
+
+
 def verify(db_path: str) -> int:
     conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     conn.row_factory = sqlite3.Row
@@ -90,14 +129,19 @@ def verify(db_path: str) -> int:
                                "prev_hash no coincide con el audit_hash anterior"))
         prev = row
 
-    # Contenido referenciado: la cadena sella content_hashes; acá se
-    # comprueba que el contenido vivo siga siendo el que se selló.
+    # Contenido referenciado: la cadena sella content_hashes DENTRO del sobre
+    # hasheado. Se recomputa sha256(contenido vivo) y se compara contra el
+    # valor SELLADO EN LA CADENA para ese evidence_id — no contra la columna
+    # mutable evidence.content_hash. Comparar contra la columna dejaba pasar
+    # una edición de dos columnas (content + content_hash juntos): Red Team
+    # Round 1, finding D1.
     content_issues = []
     tombstones = 0
     has_evidence = conn.execute(
         "SELECT name FROM sqlite_master WHERE type='table' AND name='evidence'"
     ).fetchone()
     if has_evidence:
+        sealed_by_id = _sealed_hashes_by_evidence(rows)
         for ev in conn.execute(
             "SELECT id, content, content_hash, deleted FROM evidence"
         ):
@@ -105,10 +149,16 @@ def verify(db_path: str) -> int:
                 tombstones += 1
                 continue
             got = hashlib.sha256(ev["content"].encode("utf-8")).hexdigest()
-            if got != ev["content_hash"]:
+            sealed = sealed_by_id.get(ev["id"])
+            if sealed is None:
                 content_issues.append(
                     (ev["id"], "content",
-                     "evidence.content no coincide con su content_hash sellado"))
+                     "evidence no tiene content_hash sellado en la cadena"))
+            elif got not in sealed:
+                content_issues.append(
+                    (ev["id"], "content",
+                     "evidence.content no coincide con el content_hash SELLADO "
+                     "en la cadena (edición de la fila referenciada)"))
 
     print(f"entradas en la cadena : {len(rows)}")
     print(f"linkage_ok            : {linkage_ok}")

@@ -14,9 +14,13 @@ autoridad del agente es exactamente el conjunto de tools que se le dan, y
 ninguna tool le deja escribir un índice a mano. La única tool que produce
 números —`recompute_indices`— corre el motor determinístico y sella el
 resultado ANTES de devolvérselo: el agente ve el número, no lo fabrica.
-Deliberadamente NO tiene tools para validar, descartar o cerrar un
-experimento: validar evidencia y declarar qué criterio preregistrado se
-cumplió son actos de la PERSONA, no del modelo.
+Deliberadamente NO tiene tools para vincular evidencia, validar, descartar
+o cerrar un experimento: elegir el grafo evidencia->hipótesis (y el signo
+supports/contradicts) ES puntuar —mueve el índice sellado— y la tabla de
+autoridad reserva eso fuera del modelo; validar evidencia y declarar qué
+criterio preregistrado se cumplió son actos de la PERSONA. (Red Team Round 1,
+finding B': linkear era una fuga de autoridad — el modelo podía fijar un
+índice sellado eligiendo el grafo.)
 
 Cambiar el modelo (Gemini 2.x/3.x, o el backend fake de los tests) cambia
 la redacción y el orden en que propone — jamás un índice sellado. Ese es
@@ -118,22 +122,6 @@ def add_hypothesis(statement: str) -> dict:
         conn.close()
 
 
-def link_evidence(hypothesis_id: int, evidence_id: int, direction: str) -> dict:
-    """Vincula una evidencia a una hipótesis. `direction` es 'supports' o
-    'contradicts'. Recordá: la evidencia contradictoria pesa más que la
-    confirmatoria (anti-halago); buscá activamente la que refutaría, no
-    solo la que confirma.
-    """
-    conn = _conn()
-    try:
-        domain.evidence_link(conn, hypothesis_id=hypothesis_id,
-                             evidence_id=evidence_id, direction=direction)
-        return {"linked": True, "hypothesis_id": hypothesis_id,
-                "evidence_id": evidence_id, "direction": direction}
-    finally:
-        conn.close()
-
-
 def preregister_experiment(hypothesis_id: int, design: str,
                            success_criterion: str, failure_criterion: str,
                            rival_hypothesis_id: int = 0,
@@ -191,9 +179,11 @@ Reglas que no podés romper:
 - Sostené al menos dos hipótesis rivales vivas hasta que un experimento
   las discrimine. Diseñá experimentos con criterio de fracaso declarado
   ANTES de ejecutar.
-- Vos proponés y narrás; la persona decide. No podés validar evidencia,
-  descartar hipótesis ni declarar el resultado de un experimento: esos son
-  actos de ella. Cuando corresponda, pedíselos explícitamente.
+- Vos proponés y narrás; la persona decide. No podés vincular evidencia a
+  una hipótesis, validar evidencia, descartar hipótesis ni declarar el
+  resultado de un experimento: esos son actos de ella (vincular elige el
+  grafo que el motor puntúa, así que es de ella, no tuyo). Cuando
+  corresponda, pedíselos explícitamente.
 - Si la persona trae contenido fuera de alcance (crisis, salud mental), lo
   decís con claridad y no lo procesás como evidencia de talento.
 - Empezá cada conversación llamando a get_compass_state para hablar desde
@@ -211,7 +201,6 @@ root_agent = Agent(
         verify_audit_chain,
         extract_signals_from_narrative,
         add_hypothesis,
-        link_evidence,
         preregister_experiment,
         recompute_indices,
     ],

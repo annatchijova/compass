@@ -53,8 +53,8 @@ negative-control mutations in `tests/` were noted but not re-audited this round.
 
 | ID | Severity | Level | Module | Finding |
 |----|----------|-------|--------|---------|
-| B′ | High | CONFIRMED BY INDUCTION | `agent/agent.py`, `domain.py`, `engine.py` | The ADK agent sets an arbitrary *sealed* index by choosing the evidence→hypothesis graph and its supports/contradicts direction, then calling recompute — no human step. |
-| D1 | High | CONFIRMED BY INDUCTION | `tools/verify_chain.py` | Referenced-content tamper-evidence is evaded by editing `evidence.content` and `evidence.content_hash` together, because verifiers compare live content to the **mutable table column**, not to the `content_hashes` **sealed in the chain**. |
+| B′ | High | CONFIRMED BY INDUCTION | `agent/agent.py`, `domain.py`, `engine.py` | **FIXED.** The ADK agent set an arbitrary *sealed* index by choosing the evidence→hypothesis graph and its supports/contradicts direction, then calling recompute — no human step. `link_evidence` removed from the agent. |
+| D1 | High | CONFIRMED BY INDUCTION | `tools/verify_chain.py` | **FIXED.** Referenced-content tamper-evidence was evaded by editing `evidence.content` and `evidence.content_hash` together, because verifiers compared live content to the **mutable table column**, not to the `content_hashes` **sealed in the chain**. Verifier now binds to the sealed value. |
 | C | Medium | CONFIRMED (code fact) | `engine.py`, `domain.py` | The anti-flattery factor is defeated by omission: unlinked contradicting evidence simply does not count; nothing enforces graph completeness. |
 | A | Low–Med | CONFIRMED BY INDUCTION (declared gap) | `llm.py`, `views.py` | Narrator prose can state a number/verdict contradicting the seal; `validate_prose` checks only length. Acknowledged as a v2 gap in the design. |
 | D2 | Low | CODE FACT | `audit_chain.py`, `api.py` | The in-package `verify_chain` used by `/health` and `/api/chain` never checks content, so the dashboard "integrity ✓" badge does not cover content tampering. |
@@ -114,6 +114,12 @@ negative-control mutations in `tests/` were noted but not re-audited this round.
   agent's tools (make linking a human act, mirroring evidence validation); or
   tag agent-created links `origin=llm` and exclude them from the sealed index
   until the person confirms them.
+- **Status: FIXED (this round).** `link_evidence` was removed from the ADK
+  agent's tool set (and from the module). Linking is now a human-only act, like
+  validation. The agent keeps its propose/read/narrate tools plus
+  `recompute_indices` (a pure deterministic run over the human-authored graph,
+  which involves no model choice). Regression:
+  `tests/test_redteam_round1_fixes.py::test_bprime_agent_has_no_scoring_authority`.
 
 ### D1 — Content tamper-evidence evaded by a dual-column edit
 
@@ -172,6 +178,16 @@ negative-control mutations in `tests/` were noted but not re-audited this round.
   payload), not against `evidence.content_hash`. That binds the live content to
   the tamper-evident value and closes the bypass. Apply the same fix to any
   API-surfaced content check (see D2).
+- **Status: FIXED (this round).** `tools/verify_chain.py` now builds a map
+  `evidence_id -> {content hashes sealed in the chain}` by reading the
+  tamper-evident `content_hashes` and the `evidence_id` straight from each
+  sealed payload (stdlib-only, still no package import), and checks
+  `sha256(live content)` against *that* set — not the mutable column. This
+  closes both the demonstrated dual-column forge and the narrower
+  content-swap-between-evidences residual (the hash must match the sealed value
+  *for that specific evidence_id*). Regressions:
+  `test_d1_dual_column_content_forgery_is_detected`,
+  `test_d1_single_column_edit_still_detected`, `test_d1_clean_db_still_verifies`.
 
 ### C — Anti-flattery is defeated by omission
 
@@ -237,18 +253,22 @@ negative-control mutations in `tests/` were noted but not re-audited this round.
 | "Editing content (single column) goes undetected" | **FALSIFIED** | It is detected (`QUIEBRE DETECTADO`). The real bypass needs both columns (D1). |
 | "A float or non-determinism leaks into the seal" | **Not attacked this round** | `canonicalize` raises on floats (`CanonicalizeError`) and checks `bool` before `int`; a determinism suite exists. No claim made. |
 
-## Recommendations (record only — not applied in this round)
+## Remediation
 
-1. **B′** — narrow the agent's authority: linking and recompute become human
-   acts, or agent links are `origin=llm` and excluded from the sealed index
-   until confirmed. *(Highest: contradicts the stated authority table.)*
-2. **D1** — verify live content against the chain-sealed `content_hashes`, not
-   the mutable `evidence.content_hash`. *(Highest: a written guarantee that does
-   not hold.)*
-3. **D2** — surface the (fixed) content check on the API, or relabel the badge.
+**Applied this round** (each: audit-before-patch on the live file, surgical
+anchored patch, a regression test that failed first on the vulnerable state,
+full suite green at 105 tests):
+
+1. **B′ — FIXED.** `link_evidence` removed from the ADK agent's tools; linking
+   is now human-only. Test: `test_bprime_agent_has_no_scoring_authority`.
+2. **D1 — FIXED.** The independent verifier binds live content to the
+   chain-sealed `content_hashes` per `evidence_id`, not to the mutable column.
+   Tests: the three `test_d1_*`.
+
+**Backlog (recorded, not applied):**
+
+3. **D2** — surface the (now fixed) content check on the API, or relabel the
+   dashboard badge as "chain linkage / integrity".
 4. **A** — implement the v2 narrative auditor, or template numbers into prose.
-5. **C** — surface unlinked-evidence coverage; document the omission limit.
-
-Each fix should follow the house discipline: audit-before-patch against the live
-file, a surgical anchored patch, and a test that fails first on the vulnerable
-state.
+5. **C** — surface unlinked-evidence coverage; document the omission limit
+   (no fully deterministic fix — an honest limitation).

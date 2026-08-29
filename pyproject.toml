@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "compass"
+version = "0.1.0"
+description = "Sistema de navegación personal adaptativo. Núcleo determinístico, LLM sin autoridad. Nombre provisional."
+requires-python = ">=3.10"
+license = { text = "TBD" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

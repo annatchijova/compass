@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# Compass runtime
+*.db
+*.db-wal
+*.db-shm
+compass.db
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+.vercel/
+npm-debug.log*
+
+# Env / secrets
+.env
+.env.local
+.env*.local
+*.key
+service-account*.json
+
+# OS
+.DS_Store

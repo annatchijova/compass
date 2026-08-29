@@ -165,16 +165,18 @@ def compressed_summary(sealed: dict) -> dict:
     }
 
 
-def narrate_compass(conn: sqlite3.Connection, narrator) -> dict:
+def narrate_compass(conn: sqlite3.Connection, narrator,
+                    language: str = "English") -> dict:
     """Sella, resume, narra y registra. En ese orden, siempre.
 
     La prosa queda registrada por su hash JUNTO al seal del estado; el
     seal del estado no depende de la prosa: un verificador confirma el
-    resultado sin confiar en las palabras que lo envuelven.
+    resultado sin confiar en las palabras que lo envuelven. `language` solo
+    afecta la prosa (dato fuera del seal), jamás un número.
     """
-    sealed = sealed_state(conn)            # 1. seal ANTES del modelo
-    summary = compressed_summary(sealed)   # 2. vista comprimida, solo lectura
-    prose = narrator.narrate(summary)      # 3. recién ahora habla el modelo
+    sealed = sealed_state(conn)                      # 1. seal ANTES del modelo
+    summary = compressed_summary(sealed)             # 2. vista comprimida
+    prose = narrator.narrate(summary, language)      # 3. recién ahora el modelo
     with atomic(conn):
         append(conn, op="narrated",
                payload={"state_seal": sealed["seal"],

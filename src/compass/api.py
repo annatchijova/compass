@@ -357,14 +357,15 @@ def abduce_hypotheses() -> dict:
 
 
 @app.post("/api/narrate")
-def narrate() -> dict:
+def narrate(language: str = "English") -> dict:
     """Narrador (rol LLM SIN autoridad): sella, resume, narra y registra la
-    prosa por su hash JUNTO al seal. Cambiar de backend cambia la prosa y
-    ningún número — ese es el test de arquitectura."""
+    prosa por su hash JUNTO al seal. Cambiar de backend (o de idioma) cambia
+    la prosa y ningún número — ese es el test de arquitectura. `language`:
+    English (default) | Spanish."""
     backend = backend_from_env()
     with _db() as conn:
         try:
-            out = views.narrate_compass(conn, Narrator(backend))
+            out = views.narrate_compass(conn, Narrator(backend), language)
         except LLMOutputError as exc:
             raise HTTPException(status_code=422,
                                 detail=f"narración rechazada en frontera: {exc}")

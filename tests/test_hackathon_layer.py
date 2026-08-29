@@ -42,7 +42,7 @@ def test_demo_backend_experiment_has_declared_failure_criterion():
 def test_demo_backend_narrator_is_prose_not_json():
     b = llm.DemoBackend()
     prose = llm.validate_prose(b.complete(llm.NARRATOR_SYSTEM, "{}"))
-    assert "sella" in prose.lower() or "sellad" in prose.lower()
+    assert "sealed" in prose.lower()
 
 
 # ------------------------------------------------- GeminiBackend fronteras --

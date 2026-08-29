@@ -13,9 +13,11 @@ FROM node:20-alpine AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# NEXT_PUBLIC_API_URL is inlined at build time; override with
+# NEXT_PUBLIC_API_URL is inlined at build time. Default points at the live
+# COMPASS backend on Cloud Run; override with
 #   --build-arg NEXT_PUBLIC_API_URL=https://api.example.com
-ARG NEXT_PUBLIC_API_URL=http://localhost:8080
+# Local dev uses .env.local instead of this Docker ARG.
+ARG NEXT_PUBLIC_API_URL=https://compass-1028999311218.us-central1.run.app
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build

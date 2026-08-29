@@ -144,15 +144,17 @@ no credential and no cloud, using a role-aware `demo` backend.
 ### 1. The core cycle (CLI, offline)
 
 ```bash
-python3 -m pytest                          # 119 tests — see "Tests" for the extras
+python3 -m pytest                          # 124 tests — see "Tests" for the extras
 PYTHONPATH=src python3 -m compass init     # then: person, evidence, hyp, link, exp,
                                            # observe, reflect, recompute, compass,
                                            # traj, verify
 python3 tools/verify_chain.py compass.db   # independent, stdlib-only verifier
 ```
 
-The CLI's own output strings are still Spanish-only (the API, the narrator and
-the web app are bilingual EN/ES).
+`compass verify` reports the three chain signals separately — linkage,
+integrity and content — and exits non-zero if any of them breaks. Its own
+output strings are still Spanish-only (the API, the narrator and the web app
+are bilingual EN/ES).
 
 **Trajectories (vocational fit).** "What to dedicate yourself to" is treated as
 a *fit* between demonstrated capabilities and what a path requires — never a
@@ -186,9 +188,11 @@ NEXT_PUBLIC_API_URL=http://localhost:8080 npm run dev   # → http://localhost:3
 ```
 
 The web app covers the evidence → hypothesis → experiment cycle, the audit
-chain (linkage, integrity *and* content), and the three LLM roles
-(`extract` / `abduce` / `narrate`). **Trajectories are CLI + API only so far** —
-there is no trajectory screen in the frontend yet.
+chain (linkage, integrity *and* content), the three LLM roles
+(`extract` / `abduce` / `narrate`), and the trajectory fit — counts per
+requirement, never a destiny percentage. The demo scenario seeds two rival
+trajectories over the same sealed hypotheses, so the fit is explorable on the
+first visit.
 
 ### 3. With the real Gemini model
 
@@ -252,6 +256,12 @@ COMPASS_MODEL=gemini-2.5-flash,COMPASS_GCS_BUCKET=compass-user-data-vigia-497422
   `/health`, and `contenido_ok` in `tools/verify_chain.py`.
 - **The narrator cannot dress the index as a probability.** `validate_prose`
   fail-closed rejects any percentage in the narration before it is stored.
+- **Schema creation is all-or-nothing, even under concurrent openers.** The
+  migration chain runs in one transaction whose write lock is taken *before*
+  the stored version is read, so several connections opening the same brand-new
+  base — exactly what a first page load does, three requests in parallel —
+  cannot observe a half-created schema. Locked in by
+  `tests/test_db.py::test_schema_bootstrap_is_atomic_under_concurrent_openers`.
 - **Determinism is proven, not asserted:** the same input produces the same
   seal bit-for-bit across fresh processes with a different `PYTHONHASHSEED`.
 
@@ -310,13 +320,12 @@ work that is simply not done yet.
 | # | Open item | Where it bites |
 |---|---|---|
 | 1 | **Demo video not recorded.** | README and `docs/SUBMISSION.md` both still say *to be filled*. |
-| 2 | **Trajectories have no UI.** `traj add/req/fit/discriminate` exist in the CLI and under `/api/trajectories`, but the Next.js app never calls them. | Vocational fit — the design doc's §5/§7 — is invisible to anyone who only opens the web app. |
-| 3 | **`compass verify` (CLI) reports only linkage + integrity.** Content binding is checked by `tools/verify_chain.py`, `/api/chain` and `/health`, but not by the in-CLI verifier. | A CLI-only user gets a `True/True` that does not cover the D1 tamper class. |
-| 4 | **The CLI speaks Spanish only.** The API, narrator and frontend are bilingual EN/ES. | Mixed-language experience for anyone driving the core from a terminal. |
-| 5 | **Engine weights still provisional.** `decision_record` #1 names the reopening condition: an audit against real data. | Every index is "accumulation under v1 rules", not a tuned measurement. |
-| 6 | **Narration is not semantically audited** (Red Team finding A, partial). | A certainty claim in words can still slip past the percentage guard. |
-| 7 | **Tail hash is not anchored off-machine.** | Tampering is detectable only by a verifier that already holds a prior tail. |
-| 8 | **No self-perception-vs-data confrontation yet.** | The design's confrontation step (with a deliberately careful threshold) is unimplemented. |
+| 2 | **The demo scenario cannot exercise `discriminate`.** Both seeded hypotheses are already resolved (one corroborated, one weakened), and only an *unresolved* capability required by exactly one path can discriminate. | The trajectory comparison always lands on its honest empty case, so the cheapest-next-experiment logic is never demonstrated. Seeding a third, still-latent capability would fix it — and would also change the dashboard's "single next step". |
+| 3 | **The CLI speaks Spanish only.** The API, narrator and frontend are bilingual EN/ES. | Mixed-language experience for anyone driving the core from a terminal. |
+| 4 | **Engine weights still provisional.** `decision_record` #1 names the reopening condition: an audit against real data. | Every index is "accumulation under v1 rules", not a tuned measurement. |
+| 5 | **Narration is not semantically audited** (Red Team finding A, partial). | A certainty claim in words can still slip past the percentage guard. |
+| 6 | **Tail hash is not anchored off-machine.** | Tampering is detectable only by a verifier that already holds a prior tail. |
+| 7 | **No self-perception-vs-data confrontation yet.** | The design's confrontation step (with a deliberately careful threshold) is unimplemented. |
 
 ---
 
@@ -324,18 +333,18 @@ work that is simply not done yet.
 
 ```bash
 pip install pytest '.[api,gemini,adk]'
-python3 -m pytest -q      # 119 tests, all green
+python3 -m pytest -q      # 124 tests, all green
 ```
 
 **What each extra buys you.** The suite is layered like the code: the core
 tests are stdlib-only, the rest need the extra whose surface they cover.
 
-| Installed | Result (119 collected) |
+| Installed | Result (124 collected) |
 |---|---|
-| nothing (stdlib) | 111 pass · 7 fail on import — the FastAPI-backed tests · 1 skip |
-| `.[api]` | 116 pass · 2 fail — the `GeminiBackend` fail-closed tests need `google-genai` · 1 skip |
-| `.[api,gemini]` | 118 pass · 1 skip — the ADK tool-authority test needs `google-adk` |
-| `.[api,gemini,adk]` | 119 pass |
+| nothing (stdlib) | 116 pass · 7 fail on import — the FastAPI-backed tests · 1 skip |
+| `.[api]` | 121 pass · 2 fail — the `GeminiBackend` fail-closed tests need `google-genai` · 1 skip |
+| `.[api,gemini]` | 123 pass · 1 skip — the ADK tool-authority test needs `google-adk` |
+| `.[api,gemini,adk]` | 124 pass |
 
 Failures in the first two rows are missing dependencies, not regressions; the
 core's own tests never need anything but the stdlib.

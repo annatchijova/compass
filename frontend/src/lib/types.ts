@@ -168,3 +168,56 @@ export interface AbduceResponse {
   proposals: AbduceProposal[];
   state_seal: string;
 }
+
+/* ── Trajectories (vocational fit) ───────────────────────────────────────
+   "What to dedicate yourself to" as a FIT between demonstrated capabilities
+   and what a path requires — counts per state, never a destiny percentage.
+   The fit only READS sealed hypotheses; it moves no index. */
+
+export type FitState = "met" | "supported" | "open" | "against" | "discarded";
+
+export interface Trajectory {
+  id: number | string;
+  name: string;
+  description: string;
+}
+
+export interface TrajectoriesResponse {
+  trajectories: Trajectory[];
+}
+
+export interface TrajectoryRequirement {
+  requirement_id: number | string;
+  hypothesis_id: number | string;
+  label: string;
+  hypothesis_statement: string;
+  hypothesis_status: HypothesisStatus;
+  index: number | null;
+  fit: FitState;
+}
+
+/** Counts per fit state plus `total` — deliberately no ratio, no percentage. */
+export type FitSummary = Record<FitState, number> & { total: number };
+
+export interface TrajectoryFitResponse {
+  trajectory: Trajectory;
+  requirements: TrajectoryRequirement[];
+  summary: FitSummary;
+}
+
+export interface DistinguishingRequirement {
+  hypothesis_id: number | string;
+  label: string;
+  only_in: "a" | "b";
+  fit: FitState;
+  index: number;
+}
+
+export interface DiscriminateResponse {
+  trajectory_a: Trajectory;
+  trajectory_b: Trajectory;
+  shared_requirements: (number | string)[];
+  distinguishing: DistinguishingRequirement[];
+  suggested_experiment_target: DistinguishingRequirement | null;
+  note: string;
+}

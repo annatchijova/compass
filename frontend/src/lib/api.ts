@@ -13,6 +13,9 @@ import type {
   NarrateResponse,
   AbduceResponse,
   EvidenceType,
+  TrajectoriesResponse,
+  TrajectoryFitResponse,
+  DiscriminateResponse,
 } from "./types";
 import { getUserId } from "./session";
 
@@ -156,4 +159,38 @@ export const narrate = (language: "English" | "Spanish" = "English") =>
   request<NarrateResponse>(
     `/api/narrate?language=${encodeURIComponent(language)}`,
     { method: "POST" },
+  );
+
+/* ── Trajectories (vocational fit) ───────────────────────────────────────
+   Reads are pure projections over ALREADY-SEALED hypotheses: asking for a
+   fit never recomputes and never moves an index. The backend answers in
+   counts per state — there is no destiny percentage to render. */
+
+export const getTrajectories = () =>
+  request<TrajectoriesResponse>("/api/trajectories");
+
+export const getTrajectoryFit = (id: number | string) =>
+  request<TrajectoryFitResponse>(`/api/trajectories/${id}/fit`);
+
+export const discriminate = (a: number | string, b: number | string) =>
+  request<DiscriminateResponse>(
+    `/api/trajectories/discriminate?a=${encodeURIComponent(String(a))}` +
+      `&b=${encodeURIComponent(String(b))}`,
+  );
+
+export const postTrajectory = (body: { name: string; description?: string }) =>
+  request<{ trajectory_id: number | string }>("/api/trajectories", {
+    method: "POST",
+    body: JSON.stringify({ description: "", ...body }),
+  });
+
+// A requirement is a capability the path demands, BACKED BY A HYPOTHESIS —
+// that is what keeps the fit anchored to evidence instead of to a wish.
+export const postRequirement = (
+  trajectoryId: number | string,
+  body: { hypothesis_id: number | string; label: string },
+) =>
+  request<{ requirement_id: number | string }>(
+    `/api/trajectories/${trajectoryId}/requirements`,
+    { method: "POST", body: JSON.stringify(body) },
   );

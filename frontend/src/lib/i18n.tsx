@@ -139,6 +139,10 @@ const dict = {
 
     // Errors
     "err.load": "Something went wrong loading the dashboard.",
+    "err.trajectory": "Could not add the trajectory.",
+    "err.trajectoryFit": "Could not load the trajectory fit.",
+    "err.requirement": "Could not add the requirement.",
+    "err.discriminate": "Could not compare the trajectories.",
     "err.refetch": "Refetch failed.",
     "err.validate": "Validation failed.",
     "err.recompute": "Recompute failed.",
@@ -198,6 +202,47 @@ const dict = {
     "example.hypothesis1": "Has strong systems-design capability under low social load.",
     "example.hypothesis2":
       "Learns fastest by finishing and repairing existing systems, not from a blank page.",
+
+    // Trajectories (vocational fit) — counts per state, never a percentage
+    "panel.traj.title": "Trajectories",
+    "panel.traj.subtitle":
+      "Vocational fit: what a path requires vs. what your evidence shows",
+    "panel.traj.empty": "No trajectories yet. Name a path you are weighing.",
+    "traj.readonly":
+      "A fit is a projection over already-sealed hypotheses. Opening it recomputes nothing and moves no index.",
+    "traj.noPercentage": "Counts per requirement — never a destiny percentage.",
+    "traj.select": "Trajectory",
+    "traj.addPlaceholder": "name a path you are weighing",
+    "traj.add": "Add trajectory",
+    "traj.requirements": "Capability requirements",
+    "traj.req.empty":
+      "No requirements yet. Add the capabilities this path demands — each backed by a hypothesis.",
+    "traj.req.labelPlaceholder": "capability this path requires",
+    "traj.req.hypothesis": "Backed by hypothesis",
+    "traj.req.add": "Add requirement",
+    "traj.req.needHypothesis":
+      "Add a hypothesis first — a requirement must be backed by one.",
+    "traj.req.allUsed":
+      "Every hypothesis already backs a requirement here. Add a new hypothesis to add another.",
+    "traj.req.backedBy": "hypothesis #{id}",
+    "fit.met": "Met",
+    "fit.supported": "Supported",
+    "fit.open": "Open",
+    "fit.against": "Against",
+    "fit.discarded": "Discarded",
+    "fit.total": "requirements",
+    "traj.disc.title": "Which path does the next experiment separate?",
+    "traj.disc.pickTwo": "Pick two different trajectories to compare.",
+    "traj.disc.run": "Find the discriminating capability",
+    "traj.disc.suggested": "Cheapest capability to test next",
+    "traj.disc.onlyIn": "required only by {name}",
+    "traj.disc.shared": "{n} requirement(s) shared by both",
+    "traj.disc.distinguishing": "Distinguishing capabilities",
+    "traj.disc.none":
+      "No open capability separates these two right now.",
+    "examples.trajectoryHint": "tap to fill",
+    "example.trajectory1": "Systems engineer on small, high-trust teams",
+    "example.trajectory2": "Independent researcher / technical writer",
 
     // Compass ID control
     "user.button": "Compass ID",
@@ -343,6 +388,10 @@ const dict = {
 
     // Errors
     "err.load": "Algo salió mal al cargar el dashboard.",
+    "err.trajectory": "No se pudo agregar la trayectoria.",
+    "err.trajectoryFit": "No se pudo cargar el fit de la trayectoria.",
+    "err.requirement": "No se pudo agregar el requisito.",
+    "err.discriminate": "No se pudieron comparar las trayectorias.",
     "err.refetch": "Falló la recarga.",
     "err.validate": "Falló la validación.",
     "err.recompute": "Falló el recálculo.",
@@ -402,6 +451,47 @@ const dict = {
     "example.hypothesis1": "Tiene fuerte capacidad de diseño de sistemas bajo baja carga social.",
     "example.hypothesis2":
       "Aprende más rápido terminando y reparando sistemas existentes que desde una hoja en blanco.",
+
+    // Trayectorias (fit vocacional) — cuentas por estado, nunca un porcentaje
+    "panel.traj.title": "Trayectorias",
+    "panel.traj.subtitle":
+      "Fit vocacional: lo que un camino exige vs. lo que muestra tu evidencia",
+    "panel.traj.empty": "Todavía no hay trayectorias. Nombrá un camino que estés sopesando.",
+    "traj.readonly":
+      "El fit es una proyección sobre hipótesis ya selladas. Abrirlo no recalcula nada ni mueve ningún índice.",
+    "traj.noPercentage": "Cuentas por requisito — nunca un porcentaje de destino.",
+    "traj.select": "Trayectoria",
+    "traj.addPlaceholder": "nombrá un camino que estés sopesando",
+    "traj.add": "Agregar trayectoria",
+    "traj.requirements": "Requisitos de capacidad",
+    "traj.req.empty":
+      "Todavía no hay requisitos. Agregá las capacidades que este camino exige — cada una respaldada por una hipótesis.",
+    "traj.req.labelPlaceholder": "capacidad que este camino exige",
+    "traj.req.hypothesis": "Respaldada por la hipótesis",
+    "traj.req.add": "Agregar requisito",
+    "traj.req.needHypothesis":
+      "Agregá una hipótesis primero — un requisito tiene que estar respaldado por una.",
+    "traj.req.allUsed":
+      "Todas las hipótesis ya respaldan un requisito acá. Agregá una hipótesis nueva para sumar otro.",
+    "traj.req.backedBy": "hipótesis #{id}",
+    "fit.met": "Cumplido",
+    "fit.supported": "Con respaldo",
+    "fit.open": "Abierto",
+    "fit.against": "En contra",
+    "fit.discarded": "Descartado",
+    "fit.total": "requisitos",
+    "traj.disc.title": "¿Qué camino separa el próximo experimento?",
+    "traj.disc.pickTwo": "Elegí dos trayectorias distintas para comparar.",
+    "traj.disc.run": "Buscar la capacidad que discrimina",
+    "traj.disc.suggested": "Capacidad más barata de testear ahora",
+    "traj.disc.onlyIn": "la exige solo {name}",
+    "traj.disc.shared": "{n} requisito(s) compartido(s) por las dos",
+    "traj.disc.distinguishing": "Capacidades que distinguen",
+    "traj.disc.none":
+      "Ninguna capacidad abierta separa a estas dos en este momento.",
+    "examples.trajectoryHint": "tocá para completar",
+    "example.trajectory1": "Ingeniera de sistemas en equipos chicos y de alta confianza",
+    "example.trajectory2": "Investigadora independiente / escritora técnica",
 
     // Control de Compass ID
     "user.button": "Compass ID",

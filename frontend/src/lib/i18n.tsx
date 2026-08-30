@@ -90,6 +90,8 @@ const dict = {
     "calm.design.design": "What to do",
     "calm.design.success": "It works if",
     "calm.design.failure": "It fails if",
+    "calm.design.preregistered":
+      "Preregistered. Run it, then come back to record what happened against these criteria.",
     // on-ramp (abstain)
     "calm.onramp.intro": "Let's start gently. Answer one question in your own words.",
     "calm.onramp.placeholder": "Write a few sentences, however you like…",
@@ -100,6 +102,11 @@ const dict = {
     "calm.onramp.none": "No questions available right now.",
     "calm.empty.pending": "No pending evidence right now.",
     "err.prompts": "Could not load a question.",
+
+    // Error boundary (a panel crashed at runtime)
+    "boundary.title": "Something went wrong here.",
+    "boundary.body": "This part of the page hit a problem. Your data is safe.",
+    "boundary.reload": "Reload",
 
     // Panels
     "panel.hypotheses.title": "Rival hypotheses",
@@ -475,6 +482,8 @@ const dict = {
     "calm.design.design": "Qué hacer",
     "calm.design.success": "Funciona si",
     "calm.design.failure": "Falla si",
+    "calm.design.preregistered":
+      "Preregistrado. Ejecutalo y después volvé para registrar qué pasó contra estos criterios.",
     // on-ramp (abstain)
     "calm.onramp.intro": "Arranquemos de a poco. Respondé una pregunta con tus propias palabras.",
     "calm.onramp.placeholder": "Escribí unas líneas, como quieras…",
@@ -485,6 +494,11 @@ const dict = {
     "calm.onramp.none": "No hay preguntas disponibles ahora mismo.",
     "calm.empty.pending": "No hay evidencia pendiente ahora mismo.",
     "err.prompts": "No se pudo cargar una pregunta.",
+
+    // Límite de error (un panel falló en runtime)
+    "boundary.title": "Algo salió mal acá.",
+    "boundary.body": "Esta parte de la página tuvo un problema. Tus datos están a salvo.",
+    "boundary.reload": "Recargar",
 
     // Panels
     "panel.hypotheses.title": "Hipótesis rivales",

@@ -25,6 +25,8 @@ import { ApiError } from "@/lib/api";
 import { useI18n, nextStepSentence, narratorLanguage } from "@/lib/i18n";
 import type {
   StateResponse,
+  StateHypothesis,
+  Hypothesis,
   Evidence,
   ChainResponse,
   ConfrontationsResponse,
@@ -45,6 +47,7 @@ import { IntakePanel } from "@/components/IntakePanel";
 import { ConfrontationPanel } from "@/components/ConfrontationPanel";
 import { CalmDashboard } from "@/components/CalmDashboard";
 import { ViewToggle } from "@/components/ViewToggle";
+import { DashboardErrorBoundary } from "@/components/ErrorBoundary";
 import { getViewMode, setViewMode, type ViewMode } from "@/lib/viewMode";
 
 const NEXT_STEP_ICON: Record<NextStepKind, typeof FlaskConical> = {
@@ -172,7 +175,7 @@ export default function CompassDashboard() {
   // ── Calm mode: the DEFAULT, single-focus view ──
   if (viewMode === "calm") {
     return (
-      <>
+      <DashboardErrorBoundary>
         <CalmDashboard
           state={state}
           chain={chain}
@@ -188,11 +191,12 @@ export default function CompassDashboard() {
         <div className="fixed right-4 top-[76px] z-30">
           <ViewToggle mode={viewMode} onChange={changeView} />
         </div>
-      </>
+      </DashboardErrorBoundary>
     );
   }
 
   return (
+    <DashboardErrorBoundary>
     <section className="mx-auto max-w-7xl px-4 pb-10 pt-6">
       {/* Header row */}
       <div className="animate-fade-up flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -291,9 +295,11 @@ export default function CompassDashboard() {
       <div className="mt-6 grid gap-6 lg:grid-cols-[1.4fr_1fr]">
         {/* Left column */}
         <div className="space-y-6">
-          {/* Rival hypotheses */}
+          {/* Rival hypotheses — self-fetches ALL hypotheses (incl. latent),
+              which the SEALED state deliberately hides. */}
           <HypothesesPanel
-            hypotheses={s?.hypotheses ?? []}
+            sealed={s?.hypotheses ?? []}
+            revision={revision}
             onAdded={() => void refetch()}
           />
 
@@ -368,6 +374,7 @@ export default function CompassDashboard() {
         </div>
       </div>
     </section>
+    </DashboardErrorBoundary>
   );
 }
 
@@ -455,7 +462,7 @@ function EvidenceRow({
 }
 
 function ExtractPanel({ onValidated }: { onValidated: () => void }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [narrative, setNarrative] = useState("");
   const [candidates, setCandidates] = useState<ExtractCandidate[] | null>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -468,7 +475,7 @@ function ExtractPanel({ onValidated }: { onValidated: () => void }) {
     setBusy(true);
     setErr(null);
     try {
-      const res = await api.extract(narrative);
+      const res = await api.extract(narrative, narratorLanguage(lang));
       setCandidates(res.candidates);
       setNote(res.note ?? null);
     } catch (e) {
@@ -646,17 +653,48 @@ function NarratePanel({ language }: { language: "English" | "Spanish" }) {
   );
 }
 
+// Shape the list renders — merged from /api/hypotheses (which lists EVERY
+// hypothesis, including latent ones the sealed state hides) with the sealed
+// index/status when the hypothesis exists there.
+type DisplayHypothesis = {
+  id: number | string;
+  statement: string;
+  status: StateHypothesis["status"];
+  index: number | null;
+  engine_version?: string;
+};
+
 function HypothesesPanel({
-  hypotheses,
+  sealed,
+  revision,
   onAdded,
 }: {
-  hypotheses: StateResponse["state"]["hypotheses"];
+  sealed: StateHypothesis[];
+  revision: number;
   onAdded: () => void;
 }) {
   const { t } = useI18n();
   const [statement, setStatement] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // The panel lists ALL hypotheses. A freshly added one is LATENT and is
+  // deliberately absent from the sealed state (design doc §3.2), so listing
+  // only the sealed subset made "Add hypothesis" look like it did nothing.
+  const [all, setAll] = useState<Hypothesis[] | null>(null);
+
+  const loadAll = useCallback(async () => {
+    try {
+      const res = await api.getHypotheses();
+      setAll(res.hypotheses);
+    } catch {
+      // Non-fatal: fall back to the sealed subset below.
+      setAll(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadAll();
+  }, [loadAll, revision]);
 
   const add = async () => {
     if (!statement.trim()) return;
@@ -665,6 +703,7 @@ function HypothesesPanel({
     try {
       await api.postHypothesis(statement.trim());
       setStatement("");
+      await loadAll(); // reflect the new (latent) hypothesis immediately
       onAdded();
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : t("err.hypothesis"));
@@ -673,15 +712,29 @@ function HypothesesPanel({
     }
   };
 
+  // Overlay the sealed index/status onto the full list.
+  const sealedById = new Map(sealed.map((h) => [String(h.id), h]));
+  const display: DisplayHypothesis[] = (all ?? sealed).map((h) => {
+    const s = sealedById.get(String(h.id));
+    const idx = "index" in h ? (h as StateHypothesis).index : (h as Hypothesis).index_value;
+    return {
+      id: h.id,
+      statement: h.statement,
+      status: s?.status ?? h.status,
+      index: s?.index ?? idx ?? null,
+      engine_version: s?.engine_version ?? h.engine_version,
+    };
+  });
+
   return (
     <Panel
       title={t("panel.hypotheses.title")}
       subtitle={t("panel.hypotheses.subtitle")}
       icon={GitBranch}
     >
-      {hypotheses.length > 0 ? (
+      {display.length > 0 ? (
         <div className="grid gap-4 sm:grid-cols-2">
-          {hypotheses.map((h) => (
+          {display.map((h) => (
             <div key={h.id} className="card-solid rounded-2xl p-4">
               <div className="flex items-center justify-between gap-2">
                 <StatusChip status={h.status} />

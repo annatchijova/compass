@@ -11,13 +11,14 @@ import {
 } from "lucide-react";
 import * as api from "@/lib/api";
 import { ApiError } from "@/lib/api";
-import { useI18n, nextStepSentence } from "@/lib/i18n";
+import { useI18n, nextStepSentence, narratorLanguage } from "@/lib/i18n";
 import type {
   StateResponse,
+  StateHypothesis,
   ChainResponse,
   Evidence,
   NextStep,
-  DesignExperimentResponse,
+  ExperimentDraft,
   Prompt,
 } from "@/lib/types";
 import { shortHash, contentSnippet } from "@/lib/utils";
@@ -99,6 +100,7 @@ export function CalmDashboard({
         {next ? (
           <NextStepHero
             next={next}
+            hypotheses={s?.hypotheses ?? []}
             evidence={evidence}
             onValidate={onValidate}
             validatingId={validatingId}
@@ -132,12 +134,14 @@ export function CalmDashboard({
 
 function NextStepHero({
   next,
+  hypotheses,
   evidence,
   onValidate,
   validatingId,
   onChanged,
 }: {
   next: NextStep;
+  hypotheses: StateHypothesis[];
   evidence: Evidence[] | null;
   onValidate: (id: number | string) => void;
   validatingId: number | string | null;
@@ -145,6 +149,14 @@ function NextStepHero({
 }) {
   const { t } = useI18n();
   const sentence = nextStepSentence(t, next);
+
+  // When the step points at a specific hypothesis, show its statement so the
+  // person knows WHICH one "#N" is — a bare id means nothing to them.
+  const hypId = next.hypothesis_id as number | string | undefined;
+  const referenced =
+    hypId != null
+      ? hypotheses.find((h) => String(h.id) === String(hypId))
+      : undefined;
 
   return (
     <div className="glass shadow-soft rounded-3xl p-8 text-center">
@@ -155,6 +167,13 @@ function NextStepHero({
         {sentence}
       </p>
 
+      {/* The referenced hypothesis, in quotes — statement is API-authored. */}
+      {referenced && (
+        <p className="mx-auto mt-3 max-w-xl text-[14px] italic leading-relaxed text-ink-500">
+          “{referenced.statement}”
+        </p>
+      )}
+
       <div className="mt-7">
         {next.kind === "validar_evidencia" && (
           <ValidateAction
@@ -164,7 +183,7 @@ function NextStepHero({
           />
         )}
         {next.kind === "diseñar_experimento" && (
-          <DesignAction hypothesisId={next.hypothesis_id as number | string | undefined} />
+          <DesignAction hypothesisId={hypId} onPreregistered={onChanged} />
         )}
         {(next.kind === "completar_experimento" ||
           next.kind === "ejecutar_experimento") && <GuidanceCard sentence={sentence} />}
@@ -241,37 +260,106 @@ function ValidateAction({
   );
 }
 
-/* ── diseñar_experimento: design an experiment, show the draft ── */
+/* ── diseñar_experimento: design an experiment, edit the draft, preregister ── */
 
-function DesignAction({ hypothesisId }: { hypothesisId?: number | string }) {
-  const { t } = useI18n();
-  const [draft, setDraft] = useState<DesignExperimentResponse | null>(null);
-  const [busy, setBusy] = useState(false);
+function DesignAction({
+  hypothesisId,
+  onPreregistered,
+}: {
+  hypothesisId?: number | string;
+  onPreregistered: () => void;
+}) {
+  const { t, lang } = useI18n();
+  // Editable working copy of the draft; null until designed. `note` is kept
+  // separately for display only.
+  const [draft, setDraft] = useState<ExperimentDraft | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  const [busy, setBusy] = useState<"design" | "preregister" | null>(null);
+  const [done, setDone] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   const run = async () => {
     if (hypothesisId == null) return;
-    setBusy(true);
+    setBusy("design");
     setErr(null);
     try {
-      setDraft(await api.designExperiment(hypothesisId));
+      const res = await api.designExperiment(hypothesisId, narratorLanguage(lang));
+      setDraft(res.draft);
+      setNote(res.note ?? null);
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : t("err.design"));
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   };
 
+  // The draft becomes a real preregistered experiment only here, with whatever
+  // the person edited it into.
+  const preregister = async () => {
+    if (!draft || hypothesisId == null) return;
+    setBusy("preregister");
+    setErr(null);
+    try {
+      await api.postExperiment({ hypothesis_id: hypothesisId, ...draft });
+      setDraft(null);
+      setDone(true);
+      onPreregistered();
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : t("err.design"));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  if (done) {
+    return (
+      <p className="rounded-2xl bg-brand-indigo/[0.06] p-4 text-[13.5px] leading-relaxed text-ink-700">
+        {t("calm.design.preregistered")}
+      </p>
+    );
+  }
+
   if (draft) {
+    const set = (k: keyof ExperimentDraft, v: string) =>
+      setDraft((d) => (d ? { ...d, [k]: v } : d));
     return (
       <div className="text-left">
-        {/* draft fields are API-authored — rendered as-is */}
-        <DraftLine label={t("calm.design.design")} value={draft.draft.design} />
-        <DraftLine label={t("calm.design.success")} value={draft.draft.success_criterion} />
-        <DraftLine label={t("calm.design.failure")} value={draft.draft.failure_criterion} />
-        {draft.note && (
-          <p className="mt-3 text-[11.5px] italic leading-relaxed text-ink-400">{draft.note}</p>
+        <DraftField
+          label={t("calm.design.design")}
+          value={draft.design}
+          onChange={(v) => set("design", v)}
+        />
+        <DraftField
+          label={t("calm.design.success")}
+          value={draft.success_criterion}
+          onChange={(v) => set("success_criterion", v)}
+        />
+        <DraftField
+          label={t("calm.design.failure")}
+          value={draft.failure_criterion}
+          onChange={(v) => set("failure_criterion", v)}
+        />
+        {note && (
+          <p className="mb-3 text-[11.5px] italic leading-relaxed text-ink-400">{note}</p>
         )}
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => void preregister()}
+            disabled={busy === "preregister"}
+            className="btn-primary shadow-soft inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-bold"
+          >
+            {busy === "preregister" && <RefreshCw className="h-4 w-4 animate-spin" />}
+            {t("sugg.preregister")}
+          </button>
+          <button
+            onClick={() => setDraft(null)}
+            disabled={busy === "preregister"}
+            className="btn-ghost rounded-full px-4 py-2.5 text-[13px] font-bold"
+          >
+            {t("sugg.discard")}
+          </button>
+        </div>
+        {err && <p className="mt-2 text-[12px] text-ink-500">{err}</p>}
       </div>
     );
   }
@@ -280,10 +368,10 @@ function DesignAction({ hypothesisId }: { hypothesisId?: number | string }) {
     <div>
       <button
         onClick={() => void run()}
-        disabled={busy || hypothesisId == null}
+        disabled={busy === "design" || hypothesisId == null}
         className="btn-primary shadow-soft inline-flex items-center gap-2 rounded-full px-6 py-3 text-[14px] font-bold"
       >
-        {busy ? (
+        {busy === "design" ? (
           <RefreshCw className="h-4 w-4 animate-spin" />
         ) : (
           <ChevronRight className="h-4 w-4" />
@@ -295,12 +383,27 @@ function DesignAction({ hypothesisId }: { hypothesisId?: number | string }) {
   );
 }
 
-function DraftLine({ label, value }: { label: string; value: string }) {
+function DraftField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
   return (
-    <div className="mb-2 rounded-2xl bg-ink-900/[0.02] p-3.5">
-      <p className="text-[10.5px] font-bold uppercase tracking-wide text-ink-400">{label}</p>
-      <p className="mt-1 text-[13.5px] leading-relaxed text-ink-700">{value}</p>
-    </div>
+    <label className="mb-2.5 block">
+      <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-wide text-ink-400">
+        {label}
+      </span>
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={2}
+        className="field-input w-full resize-y"
+      />
+    </label>
   );
 }
 
@@ -362,7 +465,7 @@ function OnRamp({ onSaved }: { onSaved: () => void }) {
     setBusy(true);
     setErr(null);
     try {
-      await api.extract(answer.trim());
+      await api.extract(answer.trim(), narratorLanguage(lang));
       setSaved(true);
       setAnswer("");
       onSaved();

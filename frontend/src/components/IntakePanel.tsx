@@ -162,7 +162,7 @@ function IntakeModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-ink-900/40 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/40 p-4 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-label={t("intake.panel.title")}
@@ -170,9 +170,12 @@ function IntakeModal({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="glass shadow-lift animate-fade-up my-8 w-full max-w-2xl rounded-3xl p-6">
+      {/* Flex column capped at the viewport so a 60-item questionnaire scrolls
+          INSIDE the modal instead of overflowing the page. Header, caption and
+          the Finish footer stay put; only the items list scrolls. */}
+      <div className="glass shadow-lift flex max-h-[90vh] w-full max-w-2xl flex-col rounded-3xl p-6">
         {/* Header */}
-        <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="mb-4 flex shrink-0 items-start justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl brand-gradient text-white">
               <ClipboardList className="h-4.5 w-4.5" />
@@ -198,12 +201,12 @@ function IntakeModal({
         </div>
 
         {/* Honest caption, always visible */}
-        <p className="mb-4 rounded-2xl bg-brand-indigo/[0.06] px-3.5 py-2.5 text-[12px] italic leading-relaxed text-ink-600">
+        <p className="mb-4 shrink-0 rounded-2xl bg-brand-indigo/[0.06] px-3.5 py-2.5 text-[12px] italic leading-relaxed text-ink-600">
           {t("intake.caption")}
         </p>
 
         {err && (
-          <div className="mb-4 flex items-center gap-2 rounded-2xl border border-status-debilitada/25 bg-status-debilitadaBg px-4 py-3 text-[13px] text-status-debilitada">
+          <div className="mb-4 flex shrink-0 items-center gap-2 rounded-2xl border border-status-debilitada/25 bg-status-debilitadaBg px-4 py-3 text-[13px] text-status-debilitada">
             <AlertCircle className="h-4 w-4 shrink-0" />
             {err}
           </div>
@@ -211,7 +214,7 @@ function IntakeModal({
 
         {/* Step: pick instrument */}
         {step === "pick" && (
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 overflow-y-auto sm:grid-cols-2">
             <InstrumentCard
               icon={Brain}
               title={t("intake.pick.bigFive")}
@@ -231,8 +234,8 @@ function IntakeModal({
 
         {/* Step: questionnaire */}
         {step === "questionnaire" && instrument && (
-          <div>
-            <div className="mb-3 flex items-center justify-between">
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="mb-3 flex shrink-0 items-center justify-between">
               <button
                 onClick={reset}
                 className="btn-ghost inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-bold"
@@ -245,7 +248,8 @@ function IntakeModal({
               </span>
             </div>
 
-            <div className="space-y-3">
+            {/* Only the items scroll — long instruments stay usable. */}
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
               {items.map((it) => (
                 <LikertRow
                   key={it.code}
@@ -259,7 +263,7 @@ function IntakeModal({
               ))}
             </div>
 
-            <div className="mt-4 flex justify-end">
+            <div className="mt-4 flex shrink-0 justify-end">
               <button
                 onClick={() => void finish()}
                 disabled={busy || !allAnswered}
@@ -278,7 +282,7 @@ function IntakeModal({
 
         {/* Step: results */}
         {step === "results" && (
-          <div>
+          <div className="min-h-0 flex-1 overflow-y-auto">
             {proposals.length === 0 ? (
               <Empty>{t("intake.results.title")}</Empty>
             ) : (

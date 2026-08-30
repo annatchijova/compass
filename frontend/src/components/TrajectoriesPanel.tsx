@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import * as api from "@/lib/api";
 import { ApiError } from "@/lib/api";
-import { useI18n } from "@/lib/i18n";
+import { useI18n, narratorLanguage } from "@/lib/i18n";
 import { Panel, Empty, ExampleChips } from "@/components/Panel";
 import { TrajectoryFit, FitChip } from "@/components/TrajectoryFit";
 import { OccupationPicker } from "@/components/OccupationPicker";
@@ -560,7 +560,7 @@ function ProposePaths({
   canPropose: boolean;
   onAccepted: () => Promise<void>;
 }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [proposals, setProposals] = useState<ProposedTrajectory[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -569,7 +569,9 @@ function ProposePaths({
     setBusy("propose");
     setErr(null);
     try {
-      setProposals((await api.proposeTrajectories()).proposals);
+      setProposals(
+        (await api.proposeTrajectories(narratorLanguage(lang))).proposals,
+      );
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : t("err.propose"));
     } finally {

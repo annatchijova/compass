@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import * as api from "@/lib/api";
 import { ApiError } from "@/lib/api";
-import { useI18n } from "@/lib/i18n";
+import { useI18n, narratorLanguage } from "@/lib/i18n";
 import type {
   ExperimentDraft,
   ResourceKind,
@@ -53,7 +53,7 @@ export function CapabilitySuggestions({
   hypothesisId: number | string;
   onPreregistered: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [draft, setDraft] = useState<ExperimentDraft | null>(null);
   const [resources, setResources] = useState<ResourcesResponse | null>(null);
   const [busy, setBusy] = useState<"design" | "resources" | "preregister" | null>(null);
@@ -63,7 +63,7 @@ export function CapabilitySuggestions({
     setBusy("design");
     setErr(null);
     try {
-      setDraft((await api.designExperiment(hypothesisId)).draft);
+      setDraft((await api.designExperiment(hypothesisId, narratorLanguage(lang))).draft);
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : t("err.design"));
     } finally {
@@ -75,7 +75,7 @@ export function CapabilitySuggestions({
     setBusy("resources");
     setErr(null);
     try {
-      setResources(await api.findResources(hypothesisId));
+      setResources(await api.findResources(hypothesisId, narratorLanguage(lang)));
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : t("err.resources"));
     } finally {

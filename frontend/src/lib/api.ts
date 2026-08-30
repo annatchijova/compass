@@ -180,14 +180,26 @@ export const completeExperiment = (
 export const recompute = () =>
   request<RecomputeResponse>("/api/recompute", { method: "POST" });
 
-export const extract = (narrative: string) =>
-  request<ExtractResponse>("/api/extract", {
-    method: "POST",
-    body: JSON.stringify({ narrative }),
-  });
+// Every LLM-role endpoint accepts a `?language=English|Spanish` query param
+// (same convention as narrate). Passing the current UI language keeps the
+// content the model returns in the language the person is reading, without
+// touching any sealed value. Callers pass narratorLanguage(lang).
+export type LlmLanguage = "English" | "Spanish";
 
-export const abduce = () =>
-  request<AbduceResponse>("/api/abduce", { method: "POST" });
+export const extract = (narrative: string, language: LlmLanguage = "English") =>
+  request<ExtractResponse>(
+    `/api/extract?language=${encodeURIComponent(language)}`,
+    {
+      method: "POST",
+      body: JSON.stringify({ narrative }),
+    },
+  );
+
+export const abduce = (language: LlmLanguage = "English") =>
+  request<AbduceResponse>(
+    `/api/abduce?language=${encodeURIComponent(language)}`,
+    { method: "POST" },
+  );
 
 // The narrator responds in the requested language. The endpoint accepts a
 // `language` query param with values exactly "English" or "Spanish"
@@ -237,19 +249,31 @@ export const postRequirement = (
    Neither call writes: they return drafts and reading material. Nothing is
    preregistered until the person posts it to /api/experiments themselves. */
 
-export const designExperiment = (hypothesisId: number | string) =>
-  request<DesignExperimentResponse>("/api/experiments/design", {
-    method: "POST",
-    body: JSON.stringify({ hypothesis_id: Number(hypothesisId) }),
-  });
+export const designExperiment = (
+  hypothesisId: number | string,
+  language: LlmLanguage = "English",
+) =>
+  request<DesignExperimentResponse>(
+    `/api/experiments/design?language=${encodeURIComponent(language)}`,
+    {
+      method: "POST",
+      body: JSON.stringify({ hypothesis_id: Number(hypothesisId) }),
+    },
+  );
 
 // Privacy: with a searching backend this sends the capability statement to
 // Google. It is always an explicit click, never automatic.
-export const findResources = (hypothesisId: number | string) =>
-  request<ResourcesResponse>("/api/resources", {
-    method: "POST",
-    body: JSON.stringify({ hypothesis_id: Number(hypothesisId) }),
-  });
+export const findResources = (
+  hypothesisId: number | string,
+  language: LlmLanguage = "English",
+) =>
+  request<ResourcesResponse>(
+    `/api/resources?language=${encodeURIComponent(language)}`,
+    {
+      method: "POST",
+      body: JSON.stringify({ hypothesis_id: Number(hypothesisId) }),
+    },
+  );
 
 /* ─────────────────────────── Intake (Big Five + RIASEC) ───────────────────────────
    The intake SEEDS candidate hypotheses. Registering a proposal creates a
@@ -316,10 +340,11 @@ export const adoptOccupation = (code: string, lang: "en" | "es") =>
 // Composes paths out of hypotheses that already exist — it cannot cite one
 // the person does not have, and it creates nothing. Accepting a proposal
 // goes through the ordinary postTrajectory/postRequirement calls.
-export const proposeTrajectories = () =>
-  request<ProposeTrajectoriesResponse>("/api/trajectories/propose", {
-    method: "POST",
-  });
+export const proposeTrajectories = (language: LlmLanguage = "English") =>
+  request<ProposeTrajectoriesResponse>(
+    `/api/trajectories/propose?language=${encodeURIComponent(language)}`,
+    { method: "POST" },
+  );
 
 /* ─────────────────────────── Narrative prompts (on-ramp) ───────────────────────────
    Gentle narrative questions for Calm mode's on-ramp. Read-only; the person

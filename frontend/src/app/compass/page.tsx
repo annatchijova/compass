@@ -27,6 +27,7 @@ import type {
   StateResponse,
   Evidence,
   ChainResponse,
+  ConfrontationsResponse,
   NextStep,
   NextStepKind,
   ExtractCandidate,
@@ -41,6 +42,7 @@ import { QuickTour } from "@/components/QuickTour";
 import { Panel, Empty, ExampleChips } from "@/components/Panel";
 import { TrajectoriesPanel } from "@/components/TrajectoriesPanel";
 import { IntakePanel } from "@/components/IntakePanel";
+import { ConfrontationPanel } from "@/components/ConfrontationPanel";
 
 const NEXT_STEP_ICON: Record<NextStepKind, typeof FlaskConical> = {
   completar_experimento: ClipboardCheck,
@@ -55,6 +57,8 @@ export default function CompassDashboard() {
   const [state, setState] = useState<StateResponse | null>(null);
   const [evidence, setEvidence] = useState<Evidence[] | null>(null);
   const [chain, setChain] = useState<ChainResponse | null>(null);
+  const [confrontations, setConfrontations] =
+    useState<ConfrontationsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -65,14 +69,16 @@ export default function CompassDashboard() {
   const [revision, setRevision] = useState(0);
 
   const fetchAll = useCallback(async () => {
-    const [s, e, c] = await Promise.all([
+    const [s, e, c, cf] = await Promise.all([
       api.getState(),
       api.getEvidence(),
       api.getChain(),
+      api.getConfrontations(),
     ]);
     setState(s);
     setEvidence(e.evidence);
     setChain(c);
+    setConfrontations(cf);
   }, []);
 
   const load = useCallback(async () => {
@@ -121,6 +127,7 @@ export default function CompassDashboard() {
     setState(null);
     setEvidence(null);
     setChain(null);
+    setConfrontations(null);
     void load();
   }, [load]);
 
@@ -293,6 +300,9 @@ export default function CompassDashboard() {
 
         {/* Right column */}
         <div className="space-y-6">
+          {/* Self-perception vs. data — fixed template, no model */}
+          <ConfrontationPanel data={confrontations} />
+
           {/* Narrator */}
           <NarratePanel language={narratorLanguage(lang)} />
 

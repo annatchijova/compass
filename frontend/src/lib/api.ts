@@ -24,6 +24,8 @@ import type {
   OnetOccupationsResponse,
   OnetOccupationDetail,
   OnetAdoptResponse,
+  ProposeTrajectoriesResponse,
+  ConfrontationsResponse,
 } from "./types";
 import { getUserId } from "./session";
 
@@ -109,6 +111,8 @@ export const getEvidence = () => request<EvidenceResponse>("/api/evidence");
 export const getHypotheses = () => request<HypothesesResponse>("/api/hypotheses");
 export const getExperiments = () => request<ExperimentsResponse>("/api/experiments");
 export const getChain = () => request<ChainResponse>("/api/chain");
+export const getConfrontations = () =>
+  request<ConfrontationsResponse>("/api/confrontations");
 
 // ---- writes ----
 export const postEvidence = (body: {
@@ -306,4 +310,12 @@ export const adoptOccupation = (code: string, lang: "en" | "es") =>
   request<OnetAdoptResponse>("/api/onet/adopt", {
     method: "POST",
     body: JSON.stringify({ code, lang }),
+  });
+
+// Composes paths out of hypotheses that already exist — it cannot cite one
+// the person does not have, and it creates nothing. Accepting a proposal
+// goes through the ordinary postTrajectory/postRequirement calls.
+export const proposeTrajectories = () =>
+  request<ProposeTrajectoriesResponse>("/api/trajectories/propose", {
+    method: "POST",
   });

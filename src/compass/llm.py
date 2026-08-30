@@ -6,6 +6,8 @@
                   preregistro completo; jamás asigna confianza.
     Narrador   -> pone en palabras un estado YA sellado; los números
                   están fijos y no puede alterarlos.
+    Trazador   -> propone TRAYECTORIAS candidatas componiendo hipótesis
+                  que YA existen; no puede referirse a ninguna otra.
     Buscador   -> propone RECURSOS concretos para poder ejecutar el
                   experimento de una capacidad abierta (curso, comunidad,
                   proyecto, lectura). No decide nada, no entra al ledger
@@ -46,6 +48,8 @@ MAX_CANDIDATES = 20
 MAX_HYPOTHESES = 5
 MAX_PROSE = 20000
 MAX_RESOURCES = 6
+MAX_TRAJECTORIES = 3
+MAX_REQUIREMENTS = 5
 
 # Vocabulario cerrado: un recurso es una de estas cosas o no entra. Deja
 # fuera el "consejo de vida", que el design doc §5 prohíbe explícitamente.
@@ -90,6 +94,25 @@ ABDUCTOR_EXPERIMENT_SYSTEM = (
     "well discriminates nothing. No text outside the JSON."
 )
 
+
+TRAJECTORY_PROPOSER_SYSTEM = (
+    "You are the COMPASS trajectory proposer. You receive the person's own "
+    "capability hypotheses as data, each with an id. Propose at most 3 "
+    "candidate paths they could be weighing, each one built ONLY from the "
+    "hypotheses you were given: a trajectory is a set of capability "
+    "requirements, and every requirement must cite the id of one hypothesis "
+    "from the input. You may NOT invent a hypothesis, an id, or a capability "
+    "that is not in the input. Make the paths genuinely RIVAL — they should "
+    "require different things, so that testing one capability tells the "
+    "person something about which path fits. Return ONLY a JSON array of "
+    "objects {\"name\": str, \"description\": str, \"requirements\": "
+    "[{\"hypothesis_id\": int, \"label\": str}]}, at most 5 requirements "
+    "each, written in English. \"label\" names the capability as that path "
+    "demands it. Do not rank the paths, do not say which is best, do not "
+    "give percentages or any number about the person, and do not "
+    "recommend a life decision: you are laying out options. No text "
+    "outside the JSON."
+)
 
 RESOURCE_FINDER_SYSTEM = (
     "You are the COMPASS resource finder. You receive ONE capability the "
@@ -215,6 +238,68 @@ def validate_experiment_design(raw: str) -> dict:
 # porcentaje" que el sistema promete.
 _PERCENT_RE = re.compile(r"\d\s*(%|percent|por\s+ciento)", re.IGNORECASE)
 
+def validate_trajectory_proposals(
+    raw: str, allowed_hypothesis_ids: set[int]
+) -> list[dict]:
+    """Valida trayectorias propuestas contra las hipótesis que EXISTEN.
+
+    La guardia que importa es `allowed_hypothesis_ids`: un requisito solo
+    puede citar una hipótesis real de esta persona. Un id inventado —o uno
+    de otra base— se rechaza en vez de crearse, así el modelo no puede
+    fabricar la capacidad que le conviene para armar un camino lindo.
+    Proponer hipótesis nuevas es trabajo del abductor, no de acá.
+    """
+    data = _parse_json(raw)
+    if not isinstance(data, list):
+        raise LLMOutputError("trayectorias: se esperaba una lista JSON")
+    if not data:
+        raise LLMOutputError("trayectorias: lista vacía")
+    if len(data) > MAX_TRAJECTORIES:
+        raise LLMOutputError(f"trayectorias: más de {MAX_TRAJECTORIES}")
+    out: list[dict] = []
+    for i, item in enumerate(data):
+        where = f"trayectoria[{i}]"
+        _require_exact_keys(item, {"name", "description", "requirements"}, where)
+        name = _require_str(item, "name", where)
+        description = _require_str(item, "description", where)
+        reqs = item["requirements"]
+        if not isinstance(reqs, list) or not reqs:
+            raise LLMOutputError(f"{where}: requirements debe ser lista no vacía")
+        if len(reqs) > MAX_REQUIREMENTS:
+            raise LLMOutputError(
+                f"{where}: más de {MAX_REQUIREMENTS} requisitos")
+        for text, field in ((name, "name"), (description, "description")):
+            if _PERCENT_RE.search(text):
+                raise LLMOutputError(
+                    f"{where}.{field} trae un porcentaje: este sistema no "
+                    "expresa nada sobre la persona como porcentaje")
+        seen: set[int] = set()
+        clean_reqs = []
+        for j, req in enumerate(reqs):
+            rwhere = f"{where}.requirements[{j}]"
+            _require_exact_keys(req, {"hypothesis_id", "label"}, rwhere)
+            hid = req["hypothesis_id"]
+            # bool es subclase de int: se chequea antes, como en canonicalize.
+            if isinstance(hid, bool) or not isinstance(hid, int):
+                raise LLMOutputError(f"{rwhere}: hypothesis_id debe ser int")
+            if hid not in allowed_hypothesis_ids:
+                raise LLMOutputError(
+                    f"{rwhere}: hypothesis_id={hid} no es una hipótesis de "
+                    "esta persona; el modelo no puede inventar capacidades")
+            if hid in seen:
+                raise LLMOutputError(
+                    f"{rwhere}: hypothesis_id={hid} repetido en la misma "
+                    "trayectoria (el dominio lo rechaza igual)")
+            seen.add(hid)
+            label = _require_str(req, "label", rwhere)
+            if _PERCENT_RE.search(label):
+                raise LLMOutputError(f"{rwhere}.label trae un porcentaje")
+            clean_reqs.append({"hypothesis_id": hid, "label": label})
+        out.append({"name": name, "description": description,
+                    "requirements": clean_reqs})
+    return out
+
+
 _URL_OK = re.compile(r"^https?://", re.IGNORECASE)
 
 
@@ -310,6 +395,33 @@ class Abductor:
         raw = self._backend.complete(ABDUCTOR_EXPERIMENT_SYSTEM,
                                      hypothesis_statement)
         return validate_experiment_design(raw)
+
+
+class TrajectoryProposer:
+    """Propone caminos candidatos COMPONIENDO hipótesis que ya existen.
+
+    Ataca la hoja en blanco —tener que inventar trayectorias desde cero—
+    sin darle al modelo ninguna capacidad nueva: recibe las hipótesis de
+    la persona y solo puede citar esos ids. No persiste nada; crear una
+    trayectoria y sus requisitos sigue siendo un acto de la persona.
+    """
+
+    def __init__(self, backend: Backend):
+        self._backend = backend
+
+    def propose(self, hypotheses: list[dict]) -> list[dict]:
+        allowed = {h["id"] for h in hypotheses if isinstance(h.get("id"), int)}
+        if not allowed:
+            raise LLMOutputError(
+                "no hay hipótesis con las que armar una trayectoria: "
+                "registrá al menos una capacidad primero")
+        payload = json.dumps(
+            [{"id": h["id"], "statement": h.get("statement", ""),
+              "status": h.get("status", "")}
+             for h in hypotheses if h.get("id") in allowed],
+            ensure_ascii=False, sort_keys=True)
+        raw = self._backend.complete(TRAJECTORY_PROPOSER_SYSTEM, payload)
+        return validate_trajectory_proposals(raw, allowed)
 
 
 class ResourceFinder:
@@ -479,6 +591,34 @@ class DemoBackend:
                 "failure_criterion": "It depends on structure provided by someone "
                                      "else, or collapses at the first counter-example.",
             }, ensure_ascii=False)
+        if system == TRAJECTORY_PROPOSER_SYSTEM:
+            # Offline: se arman dos caminos rivales con las PRIMERAS
+            # hipótesis recibidas. No se inventan ids — se reusan los del
+            # input, que es exactamente lo que el validador exige.
+            try:
+                given = json.loads(user)
+                ids = [h["id"] for h in given][:2]
+            except Exception:
+                ids = []
+            if not ids:
+                return json.dumps([], ensure_ascii=False)
+            first = [{"hypothesis_id": ids[0],
+                      "label": "Owns the whole design end to end"}]
+            second = [{"hypothesis_id": ids[-1],
+                       "label": "Delivers fast inside someone else's structure"}]
+            if len(ids) > 1:
+                first.append({"hypothesis_id": ids[1],
+                              "label": "Sustains it without external scaffold"})
+            return json.dumps([
+                {"name": "Systems architect on small, high-trust teams",
+                 "description": "Owns an architecture and defends it under "
+                                "critique.",
+                 "requirements": first},
+                {"name": "High-tempo delivery engineer",
+                 "description": "Ships fast inside a structure someone else "
+                                "designed.",
+                 "requirements": second},
+            ], ensure_ascii=False)
         if system == RESOURCE_FINDER_SYSTEM:
             # Offline: NO se inventan URLs. Vienen vacías a propósito y el
             # rol marca grounded=False, así la UI dice que no fueron

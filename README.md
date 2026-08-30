@@ -82,23 +82,36 @@ never touches the decision path:
 ### What Gemini actually does here
 
 Growing the model's presence means growing what it *proposes*, never what it
-decides. Four roles, none with authority:
+decides. Five roles, none with authority:
 
 | Role | Proposes | Person's act |
 |---|---|---|
 | **Extractor** | candidate signals from a narrative | validating one is what makes it evidence |
 | **Abductor** | rival hypotheses about a capability | keeping or discarding one |
+| **Trajectory proposer** | candidate paths, composed **only** from hypotheses that already exist | accepting one creates it, through the ordinary endpoints |
 | **Experiment designer** | a discriminating experiment for an open capability — design, success criterion, and the **failure criterion declared before running it** | editing it and preregistering it |
 | **Resource finder** | concrete places to go *run* that experiment — a course, community, open project, reading, tool, or kind of person — found by Google Search on Vertex, each with its source | deciding whether any is worth their time |
 
-The last two answer the question a vocational test usually dodges: not "what
-are you like" but **"what do you do on Monday to find out"**.
+The last three answer the question a vocational test usually dodges: not
+"what are you like" but **"what do you do on Monday to find out"** — and the
+trajectory proposer answers the one before it, *which paths are even worth
+weighing*, so nobody starts at a blank page.
 
-Both are proposals in the strict sense — asking for either writes nothing,
-appends nothing to the chain, and moves no index. That is not a convention,
-it is a test: `test_suggesting_moves_no_sealed_number` compares the sealed
-state, the chain length and a fresh recompute across both calls, and fails
-if any of them budges.
+All three are proposals in the strict sense — asking for any of them writes
+nothing, appends nothing to the chain, and moves no index. That is not a
+convention, it is a test: `test_suggesting_moves_no_sealed_number` and
+`test_proposing_trajectories_moves_no_sealed_number` compare the sealed
+state, the chain length and a fresh recompute across the calls, and fail if
+any of them budges. A negative control confirmed they go red the moment an
+endpoint writes.
+
+The trajectory proposer carries a guard of its own: **it may only cite
+hypotheses that exist**. A model that could invent a hypothesis id could
+invent the capability that makes a path look good, so every requirement is
+checked against the person's real ids and an unknown one is rejected at the
+boundary rather than created (proposing *new* capabilities is the abductor's
+job, not this one's). Accepting a proposal runs the same two endpoints the
+person would use by hand — the proposer gets no private write path.
 
 Two honesty rules the resource finder carries, because it is the first
 feature that reads the outside world:
@@ -184,7 +197,7 @@ no credential and no cloud, using a role-aware `demo` backend.
 ### 1. The core cycle (CLI, offline)
 
 ```bash
-python3 -m pytest                          # 138 tests — see "Tests" for the extras
+python3 -m pytest                          # 162 tests — see "Tests" for the extras
 PYTHONPATH=src python3 -m compass init     # then: person, evidence, hyp, link, exp,
                                            # observe, reflect, recompute, compass,
                                            # traj, verify
@@ -302,6 +315,17 @@ COMPASS_MODEL=gemini-2.5-flash,COMPASS_GCS_BUCKET=compass-user-data-vigia-497422
   base — exactly what a first page load does, three requests in parallel —
   cannot observe a half-created schema. Locked in by
   `tests/test_db.py::test_schema_bootstrap_is_atomic_under_concurrent_openers`.
+- **The confrontation is computed, never narrated** (design doc §5). "Your
+  account says X; the record shows Y" is the concept's most powerful moment
+  and its most dangerous, so no model touches it: the engine splits linked,
+  validated evidence into what the person *asserts* (`self_report`,
+  `narrative_extracted`) and what was *observed* (`behavioral`,
+  `experiment_result`, `outcome_external`), fires only when both accounts
+  point in opposite directions under §5's minimum conditions, and returns
+  counts. The sentence comes from a fixed template. A model under narrative
+  pressure could turn a discrepancy into a verdict about who someone is,
+  which is exactly what §5 forbids. Silence on one side is a gap, not a
+  contradiction, and never fires.
 - **Determinism is proven, not asserted:** the same input produces the same
   seal bit-for-bit across fresh processes with a different `PYTHONHASHSEED`.
 
@@ -372,7 +396,7 @@ work that is simply not done yet.
 | 4 | **Engine weights still provisional.** `decision_record` #1 names the reopening condition: an audit against real data. | Every index is "accumulation under v1 rules", not a tuned measurement. |
 | 5 | **Narration is not semantically audited** (Red Team finding A, partial). | A certainty claim in words can still slip past the percentage guard. |
 | 6 | **Tail hash is not anchored off-machine.** | Tampering is detectable only by a verifier that already holds a prior tail. |
-| 7 | **No self-perception-vs-data confrontation yet.** | The design's confrontation step (with a deliberately careful threshold) is unimplemented. |
+| 7 | **The confrontation policy is PROVISIONAL** (`confrontation-v0-provisional`). The step itself now ships; its threshold, frequency and tone are v0 values put there to unblock it, not measured — `decision_record` records the reopening condition. | Every discrepancy shown rests on numbers nobody has justified yet. The panel says so, and the API returns the policy alongside the result, so the rule can be argued with instead of the conclusion. |
 
 ---
 
@@ -380,18 +404,18 @@ work that is simply not done yet.
 
 ```bash
 pip install pytest '.[api,gemini,adk]'
-python3 -m pytest -q      # 138 tests, all green
+python3 -m pytest -q      # 162 tests, all green
 ```
 
 **What each extra buys you.** The suite is layered like the code: the core
 tests are stdlib-only, the rest need the extra whose surface they cover.
 
-| Installed | Result (138 collected) |
+| Installed | Result (162 collected) |
 |---|---|
-| nothing (stdlib) | 125 pass · 7 fail + 4 error, all `ModuleNotFoundError: fastapi` · 2 skip |
-| `.[api]` | 134 pass · 2 fail — the `GeminiBackend` fail-closed tests need `google-genai` · 2 skip |
-| `.[api,gemini]` | 136 pass · 2 skip — the ADK tests need `google-adk` |
-| `.[api,gemini,adk]` | 138 pass |
+| nothing (stdlib) | 143 pass · 7 fail + 10 error, all `ModuleNotFoundError: fastapi` · 2 skip |
+| `.[api]` | 158 pass · 2 fail — the `GeminiBackend` fail-closed tests need `google-genai` · 2 skip |
+| `.[api,gemini]` | 160 pass · 2 skip — the ADK tests need `google-adk` |
+| `.[api,gemini,adk]` | 162 pass |
 
 Failures in the first two rows are missing dependencies, not regressions; the
 core's own tests never need anything but the stdlib.

@@ -375,8 +375,9 @@ class Extractor:
     def __init__(self, backend: Backend):
         self._backend = backend
 
-    def extract(self, narrative: str) -> list[dict]:
-        raw = self._backend.complete(EXTRACTOR_SYSTEM, narrative)
+    def extract(self, narrative: str, language: str = "English") -> list[dict]:
+        raw = self._backend.complete(_in_language(EXTRACTOR_SYSTEM, language),
+                                     narrative)
         return validate_signal_candidates(raw)
 
 
@@ -384,16 +385,19 @@ class Abductor:
     def __init__(self, backend: Backend):
         self._backend = backend
 
-    def abduce_hypotheses(self, summary: dict) -> list[dict]:
+    def abduce_hypotheses(self, summary: dict,
+                          language: str = "English") -> list[dict]:
         raw = self._backend.complete(
-            ABDUCTOR_HYPOTHESES_SYSTEM,
+            _in_language(ABDUCTOR_HYPOTHESES_SYSTEM, language),
             json.dumps(summary, ensure_ascii=False, sort_keys=True),
         )
         return validate_hypothesis_proposals(raw)
 
-    def design_experiment(self, hypothesis_statement: str) -> dict:
-        raw = self._backend.complete(ABDUCTOR_EXPERIMENT_SYSTEM,
-                                     hypothesis_statement)
+    def design_experiment(self, hypothesis_statement: str,
+                          language: str = "English") -> dict:
+        raw = self._backend.complete(
+            _in_language(ABDUCTOR_EXPERIMENT_SYSTEM, language),
+            hypothesis_statement)
         return validate_experiment_design(raw)
 
 
@@ -409,7 +413,8 @@ class TrajectoryProposer:
     def __init__(self, backend: Backend):
         self._backend = backend
 
-    def propose(self, hypotheses: list[dict]) -> list[dict]:
+    def propose(self, hypotheses: list[dict],
+                language: str = "English") -> list[dict]:
         allowed = {h["id"] for h in hypotheses if isinstance(h.get("id"), int)}
         if not allowed:
             raise LLMOutputError(
@@ -420,7 +425,8 @@ class TrajectoryProposer:
               "status": h.get("status", "")}
              for h in hypotheses if h.get("id") in allowed],
             ensure_ascii=False, sort_keys=True)
-        raw = self._backend.complete(TRAJECTORY_PROPOSER_SYSTEM, payload)
+        raw = self._backend.complete(
+            _in_language(TRAJECTORY_PROPOSER_SYSTEM, language), payload)
         return validate_trajectory_proposals(raw, allowed)
 
 
@@ -440,22 +446,35 @@ class ResourceFinder:
     def __init__(self, backend: Backend):
         self._backend = backend
 
-    def find(self, capability: str) -> dict:
+    def find(self, capability: str, language: str = "English") -> dict:
         if not isinstance(capability, str) or not capability.strip():
             raise LLMOutputError("hace falta una capacidad para buscar recursos")
         user = capability.strip()[:MAX_TEXT]
+        system = _in_language(RESOURCE_FINDER_SYSTEM, language)
         if isinstance(self._backend, SearchingBackend):
-            raw, sources = self._backend.search(RESOURCE_FINDER_SYSTEM, user)
+            raw, sources = self._backend.search(system, user)
             grounded = True
         else:
             raw, sources, grounded = (
-                self._backend.complete(RESOURCE_FINDER_SYSTEM, user), [], False)
+                self._backend.complete(system, user), [], False)
         return {"resources": validate_resources(raw),
                 "grounded": grounded,
                 "sources": sources}
 
 
 SUPPORTED_LANGUAGES = {"English", "Spanish"}
+
+
+def _in_language(system: str, language: str) -> str:
+    """Añade al system prompt la instrucción de responder en el idioma pedido:
+    los VALORES de los campos y la prosa en ese idioma (las claves JSON quedan
+    como están). Idioma inválido -> English. Así el extractor, el abductor, el
+    diseñador de experimentos y el proposer dejan de responder en inglés cuando
+    la persona usa la app en castellano."""
+    if language not in SUPPORTED_LANGUAGES:
+        language = "English"
+    return (f"{system} Write in {language}: every field value and any prose "
+            f"must be in {language} (keep JSON keys exactly as specified).")
 
 
 class Narrator:
@@ -563,7 +582,7 @@ class DemoBackend:
     """
 
     def complete(self, system: str, user: str) -> str:
-        if system == EXTRACTOR_SYSTEM:
+        if system.startswith(EXTRACTOR_SYSTEM):
             snippet = (user or "").strip().replace("\n", " ")[:160] or "…"
             return json.dumps([
                 {"señal": "Returns to an activity on her own, unprompted "
@@ -573,7 +592,7 @@ class DemoBackend:
                           "absorbs her.",
                  "cita": snippet},
             ], ensure_ascii=False)
-        if system == ABDUCTOR_HYPOTHESES_SYSTEM:
+        if system.startswith(ABDUCTOR_HYPOTHESES_SYSTEM):
             return json.dumps([
                 {"statement": "If she had systems-design capability, the "
                               "spontaneous return to redesign the core would be "
@@ -582,7 +601,7 @@ class DemoBackend:
                               "return would be explained by deadline pressure, "
                               "not by the activity itself."},
             ], ensure_ascii=False)
-        if system == ABDUCTOR_EXPERIMENT_SYSTEM:
+        if system.startswith(ABDUCTOR_EXPERIMENT_SYSTEM):
             return json.dumps({
                 "design": "Design a new architecture from scratch, with no "
                           "external scaffold, and have a third party audit it.",
@@ -591,7 +610,7 @@ class DemoBackend:
                 "failure_criterion": "It depends on structure provided by someone "
                                      "else, or collapses at the first counter-example.",
             }, ensure_ascii=False)
-        if system == TRAJECTORY_PROPOSER_SYSTEM:
+        if system.startswith(TRAJECTORY_PROPOSER_SYSTEM):
             # Offline: se arman dos caminos rivales con las PRIMERAS
             # hipótesis recibidas. No se inventan ids — se reusan los del
             # input, que es exactamente lo que el validador exige.
@@ -619,7 +638,7 @@ class DemoBackend:
                                 "designed.",
                  "requirements": second},
             ], ensure_ascii=False)
-        if system == RESOURCE_FINDER_SYSTEM:
+        if system.startswith(RESOURCE_FINDER_SYSTEM):
             # Offline: NO se inventan URLs. Vienen vacías a propósito y el
             # rol marca grounded=False, así la UI dice que no fueron
             # buscados en vez de disfrazar memoria de búsqueda.
@@ -641,6 +660,27 @@ class DemoBackend:
                 "by the deterministic engine and this text cannot alter them. "
                 "The indicated next step is the one worth running; the system "
                 "does not flatter, it helps you see.")
+
+
+def _thinking_off():
+    """Desactiva el 'thinking' de Gemini 2.x para las tareas estructuradas de
+    COMPASS (JSON estricto o prosa fija): el razonamiento en cadena consumía el
+    presupuesto de tokens y devolvía texto VACÍO en tareas más largas (p. ej. el
+    proposer). Si la versión del SDK no lo soporta, devuelve None (sin efecto)."""
+    try:
+        from google.genai import types
+        return types.ThinkingConfig(thinking_budget=0)
+    except Exception:  # pragma: no cover - depende de la versión del SDK
+        return None
+
+
+def _finish_reason(resp: object) -> str:
+    """finish_reason del primer candidato, tolerando ausencias — para que una
+    respuesta vacía diga POR QUÉ (MAX_TOKENS, SAFETY, …) en vez de un error mudo."""
+    try:
+        return str(resp.candidates[0].finish_reason)
+    except Exception:
+        return "desconocido"
 
 
 class GeminiBackend:
@@ -672,7 +712,7 @@ class GeminiBackend:
     """
 
     def __init__(self, model: str = "gemini-2.5-flash",
-                 timeout: int = 60, max_output_tokens: int = 2048):
+                 timeout: int = 60, max_output_tokens: int = 8192):
         self._model = model
         self._timeout = timeout
         self._max_output_tokens = max_output_tokens
@@ -713,6 +753,7 @@ class GeminiBackend:
                     system_instruction=system,
                     temperature=0,
                     max_output_tokens=self._max_output_tokens,
+                    thinking_config=_thinking_off(),
                     http_options=types.HttpOptions(timeout=self._timeout * 1000),
                 ),
             )
@@ -720,7 +761,9 @@ class GeminiBackend:
             raise RuntimeError(f"error llamando a Gemini: {exc}") from exc
         text = getattr(resp, "text", None)
         if not isinstance(text, str) or not text.strip():
-            raise RuntimeError("respuesta de Gemini vacía o con forma inesperada")
+            raise RuntimeError(
+                "respuesta de Gemini vacía o con forma inesperada "
+                f"(finish_reason={_finish_reason(resp)})")
         return text
 
 
@@ -756,7 +799,9 @@ class GeminiBackend:
             raise RuntimeError(f"error buscando con Gemini: {exc}") from exc
         text = getattr(resp, "text", None)
         if not isinstance(text, str) or not text.strip():
-            raise RuntimeError("respuesta de Gemini vacía o con forma inesperada")
+            raise RuntimeError(
+                "respuesta de Gemini vacía o con forma inesperada "
+                f"(finish_reason={_finish_reason(resp)})")
         return text, _grounding_sources(resp)
 
 

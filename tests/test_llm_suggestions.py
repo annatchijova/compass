@@ -111,7 +111,9 @@ def test_the_capability_is_passed_as_data_under_the_resource_prompt():
     backend = _StubSearchBackend(_GOOD)
     ResourceFinder(backend).find("  Closes an architecture unaided  ")
     system, user = backend.asked[0]
-    assert system == RESOURCE_FINDER_SYSTEM
+    # the system prompt carries a language suffix (respond in EN/ES); the
+    # capability itself is passed as the USER content, never in the prompt.
+    assert system.startswith(RESOURCE_FINDER_SYSTEM)
     assert user == "Closes an architecture unaided"
 
 

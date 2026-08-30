@@ -559,14 +559,14 @@ class NarrativeIn(BaseModel):
 
 
 @app.post("/api/extract")
-def extract_signals(body: NarrativeIn, uid: str = Depends(get_uid)) -> dict:
+def extract_signals(body: NarrativeIn, language: str = "English", uid: str = Depends(get_uid)) -> dict:
     """Extractor (rol LLM SIN autoridad): propone candidatos a señal desde
     una narrativa y los PERSISTE como evidencia pendiente (`validated=0`).
     Validarlos es un acto aparte de la persona; ningún índice se mueve acá.
     """
     backend = backend_from_env()
     try:
-        candidates = Extractor(backend).extract(body.narrative)
+        candidates = Extractor(backend).extract(body.narrative, language)
     except LLMOutputError as exc:
         raise HTTPException(status_code=422,
                             detail=f"salida del modelo rechazada en frontera: {exc}")
@@ -588,7 +588,7 @@ def extract_signals(body: NarrativeIn, uid: str = Depends(get_uid)) -> dict:
 
 
 @app.post("/api/abduce")
-def abduce_hypotheses(uid: str = Depends(get_uid)) -> dict:
+def abduce_hypotheses(language: str = "English", uid: str = Depends(get_uid)) -> dict:
     """Abductor (rol LLM SIN autoridad): dado el resumen sellado, propone
     hipótesis rivales. NO las persiste ni les asigna confianza."""
     with _db(uid) as conn:
@@ -596,7 +596,7 @@ def abduce_hypotheses(uid: str = Depends(get_uid)) -> dict:
         summary = views.compressed_summary(sealed)
     backend = backend_from_env()
     try:
-        proposals = Abductor(backend).abduce_hypotheses(summary)
+        proposals = Abductor(backend).abduce_hypotheses(summary, language)
     except LLMOutputError as exc:
         raise HTTPException(status_code=422,
                             detail=f"salida del modelo rechazada en frontera: {exc}")
@@ -619,7 +619,7 @@ def _hypothesis_statement(conn, hypothesis_id: int) -> str:
 
 
 @app.post("/api/trajectories/propose")
-def propose_trajectories(uid: str = Depends(get_uid)) -> dict:
+def propose_trajectories(language: str = "English", uid: str = Depends(get_uid)) -> dict:
     """Trazador (rol LLM SIN autoridad): propone caminos candidatos
     componiendo las hipótesis que YA existen.
 
@@ -645,7 +645,7 @@ def propose_trajectories(uid: str = Depends(get_uid)) -> dict:
                    "registrá al menos una capacidad primero")
     backend = backend_from_env()
     try:
-        proposals = TrajectoryProposer(backend).propose(hypotheses)
+        proposals = TrajectoryProposer(backend).propose(hypotheses, language)
     except LLMOutputError as exc:
         raise HTTPException(status_code=422,
                             detail=f"salida del modelo rechazada en frontera: {exc}")
@@ -657,7 +657,7 @@ def propose_trajectories(uid: str = Depends(get_uid)) -> dict:
 
 
 @app.post("/api/experiments/design")
-def design_experiment(body: HypothesisRefIn, uid: str = Depends(get_uid)) -> dict:
+def design_experiment(body: HypothesisRefIn, language: str = "English", uid: str = Depends(get_uid)) -> dict:
     """Diseñador de experimentos (rol LLM SIN autoridad): dada una hipótesis,
     REDACTA un borrador de experimento discriminante con su criterio de
     fracaso declarado de antemano.
@@ -672,7 +672,7 @@ def design_experiment(body: HypothesisRefIn, uid: str = Depends(get_uid)) -> dic
         statement = _hypothesis_statement(conn, body.hypothesis_id)
     backend = backend_from_env()
     try:
-        draft = Abductor(backend).design_experiment(statement)
+        draft = Abductor(backend).design_experiment(statement, language)
     except LLMOutputError as exc:
         raise HTTPException(status_code=422,
                             detail=f"salida del modelo rechazada en frontera: {exc}")
@@ -686,7 +686,7 @@ def design_experiment(body: HypothesisRefIn, uid: str = Depends(get_uid)) -> dic
 
 
 @app.post("/api/resources")
-def find_resources(body: HypothesisRefIn, uid: str = Depends(get_uid)) -> dict:
+def find_resources(body: HypothesisRefIn, language: str = "English", uid: str = Depends(get_uid)) -> dict:
     """Buscador de recursos (rol LLM SIN autoridad): dónde ir a EJECUTAR el
     experimento de una capacidad.
 
@@ -704,7 +704,7 @@ def find_resources(body: HypothesisRefIn, uid: str = Depends(get_uid)) -> dict:
         statement = _hypothesis_statement(conn, body.hypothesis_id)
     backend = backend_from_env()
     try:
-        found = ResourceFinder(backend).find(statement)
+        found = ResourceFinder(backend).find(statement, language)
     except LLMOutputError as exc:
         raise HTTPException(status_code=422,
                             detail=f"salida del modelo rechazada en frontera: {exc}")

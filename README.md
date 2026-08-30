@@ -2,10 +2,16 @@
 
 **An adaptive personal-navigation partner. A compass, not a mirror.**
 
-COMPASS helps a person discover their own capabilities and direction from
-evidence of their own life, through cycles of hypothesis → experiment →
-update. Two invariants separate it from a personality test with a chatbot
-bolted on:
+COMPASS is a vocational-orientation tool built the opposite way round from
+the usual one. Instead of asking you to rate yourself and returning a
+confident profile, it treats "what should I dedicate myself to" as a **fit
+between capabilities you have demonstrated and what a path actually
+requires** — and it makes you go find out. Each capability is a hypothesis;
+the system proposes a concrete, preregistered experiment that would
+discriminate it, you run it in your life, and the outcome moves an index
+that a deterministic engine — never a model — computes and seals.
+
+Two invariants separate it from a personality test with a chatbot bolted on:
 
 1. **No claim about the person exists without recorded, sealed evidence.**
 2. **No number describing the person ever comes out of an LLM.** A
@@ -144,7 +150,7 @@ no credential and no cloud, using a role-aware `demo` backend.
 ### 1. The core cycle (CLI, offline)
 
 ```bash
-python3 -m pytest                          # 124 tests — see "Tests" for the extras
+python3 -m pytest                          # 125 tests — see "Tests" for the extras
 PYTHONPATH=src python3 -m compass init     # then: person, evidence, hyp, link, exp,
                                            # observe, reflect, recompute, compass,
                                            # traj, verify
@@ -320,12 +326,14 @@ work that is simply not done yet.
 | # | Open item | Where it bites |
 |---|---|---|
 | 1 | **Demo video not recorded.** | README and `docs/SUBMISSION.md` both still say *to be filled*. |
-| 2 | **The demo scenario cannot exercise `discriminate`.** Both seeded hypotheses are already resolved (one corroborated, one weakened), and only an *unresolved* capability required by exactly one path can discriminate. | The trajectory comparison always lands on its honest empty case, so the cheapest-next-experiment logic is never demonstrated. Seeding a third, still-latent capability would fix it — and would also change the dashboard's "single next step". |
-| 3 | **The CLI speaks Spanish only.** The API, narrator and frontend are bilingual EN/ES. | Mixed-language experience for anyone driving the core from a terminal. |
-| 4 | **Engine weights still provisional.** `decision_record` #1 names the reopening condition: an audit against real data. | Every index is "accumulation under v1 rules", not a tuned measurement. |
-| 5 | **Narration is not semantically audited** (Red Team finding A, partial). | A certainty claim in words can still slip past the percentage guard. |
-| 6 | **Tail hash is not anchored off-machine.** | Tampering is detectable only by a verifier that already holds a prior tail. |
-| 7 | **No self-perception-vs-data confrontation yet.** | The design's confrontation step (with a deliberately careful threshold) is unimplemented. |
+| 2 | **The experiment designer is built but unreachable.** `Abductor.design_experiment` (`src/compass/llm.py`) drafts a concrete design + success + failure criterion and validates the model's output, but nothing calls it — not the API, not the CLI, not the agent, not the web app. | The most useful concrete suggestion the system can make ("here is an experiment that would settle this capability") never reaches the person. |
+| 3 | **No resource / opportunity layer.** The design doc parks "opportunity radar" as out of MVP because it needs external sources. Nothing today points a person at a course, community, project or reading that would let them *run* an open capability's experiment. | The person is told what to test but left alone to figure out how. Reopening it means deciding how external content enters a system whose whole posture is that nothing enters the ledger unvalidated — see [`docs/COMPASS-DESIGN-v0.md`](docs/COMPASS-DESIGN-v0.md) §5 (hard limits) and §6 (privacy). |
+| 4 | **The demo scenario cannot exercise `discriminate`.** Both seeded hypotheses are already resolved (one corroborated, one weakened), and only an *unresolved* capability required by exactly one path can discriminate. | The trajectory comparison always lands on its honest empty case, so the cheapest-next-experiment logic is never demonstrated. Seeding a third, still-latent capability would fix it — and would also change the dashboard's "single next step". |
+| 5 | **The CLI speaks Spanish only.** The API, narrator and frontend are bilingual EN/ES. | Mixed-language experience for anyone driving the core from a terminal. |
+| 6 | **Engine weights still provisional.** `decision_record` #1 names the reopening condition: an audit against real data. | Every index is "accumulation under v1 rules", not a tuned measurement. |
+| 7 | **Narration is not semantically audited** (Red Team finding A, partial). | A certainty claim in words can still slip past the percentage guard. |
+| 8 | **Tail hash is not anchored off-machine.** | Tampering is detectable only by a verifier that already holds a prior tail. |
+| 9 | **No self-perception-vs-data confrontation yet.** | The design's confrontation step (with a deliberately careful threshold) is unimplemented. |
 
 ---
 
@@ -333,18 +341,18 @@ work that is simply not done yet.
 
 ```bash
 pip install pytest '.[api,gemini,adk]'
-python3 -m pytest -q      # 124 tests, all green
+python3 -m pytest -q      # 125 tests, all green
 ```
 
 **What each extra buys you.** The suite is layered like the code: the core
 tests are stdlib-only, the rest need the extra whose surface they cover.
 
-| Installed | Result (124 collected) |
+| Installed | Result (125 collected) |
 |---|---|
-| nothing (stdlib) | 116 pass · 7 fail on import — the FastAPI-backed tests · 1 skip |
-| `.[api]` | 121 pass · 2 fail — the `GeminiBackend` fail-closed tests need `google-genai` · 1 skip |
-| `.[api,gemini]` | 123 pass · 1 skip — the ADK tool-authority test needs `google-adk` |
-| `.[api,gemini,adk]` | 124 pass |
+| nothing (stdlib) | 116 pass · 7 fail on import — the FastAPI-backed tests · 2 skip |
+| `.[api]` | 121 pass · 2 fail — the `GeminiBackend` fail-closed tests need `google-genai` · 2 skip |
+| `.[api,gemini]` | 123 pass · 2 skip — the ADK tests need `google-adk` |
+| `.[api,gemini,adk]` | 125 pass |
 
 Failures in the first two rows are missing dependencies, not regressions; the
 core's own tests never need anything but the stdlib.

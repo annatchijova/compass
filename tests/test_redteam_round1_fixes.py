@@ -10,6 +10,8 @@ import hashlib
 import os
 import subprocess
 import sys
+
+import pytest
 from pathlib import Path
 
 from compass import seed_demo
@@ -266,3 +268,36 @@ def test_d3_cli_verify_keeps_the_three_signals_separate(tmp_path):
     out = _run_cli_verify(db).stdout
     for signal in ("linkage_ok", "integrity_ok", "contenido_ok"):
         assert signal in out, f"{signal} must be reported on its own line"
+
+
+def test_d3_agent_verify_tool_also_reports_content(tmp_path, monkeypatch):
+    """The agent's own verifier had the same blind spot as the CLI: it read
+    linkage and integrity only, so a forged evidence row looked clean to the
+    Collaborative Partner. The agent has no scoring authority, but it must not
+    report a healthy chain over tampered content either."""
+    pytest.importorskip("google.adk")
+    monkeypatch.setenv("COMPASS_DB", str(tmp_path / "agent.db"))
+    import importlib
+
+    from compass.agent import agent as agent_module
+    importlib.reload(agent_module)
+
+    _seed(str(tmp_path / "agent.db"))
+    clean = agent_module.verify_audit_chain()
+    assert clean["content_ok"] is True
+    assert {"linkage_ok", "integrity_ok", "content_ok"} <= set(clean)
+
+    forged = '{"text":"FORGED past the agent"}'
+    conn = open_db(str(tmp_path / "agent.db"))
+    with conn:
+        conn.execute(
+            "UPDATE evidence SET content = ?, content_hash = ? WHERE id = 1",
+            (forged, hashlib.sha256(forged.encode("utf-8")).hexdigest()),
+        )
+    conn.close()
+
+    broken = agent_module.verify_audit_chain()
+    assert broken["content_ok"] is False, (
+        "the agent reported a clean chain over forged content"
+    )
+    assert broken["issues"], "the breach must be listed, not just flagged"

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Compass, Route } from "lucide-react";
+import { Compass } from "lucide-react";
 import { CompassLogo, CompassWordmark } from "@/components/CompassLogo";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { useI18n } from "@/lib/i18n";
@@ -30,17 +30,6 @@ export function Navbar() {
               className="hidden rounded-full px-3 py-1.5 text-[13px] font-semibold text-ink-500 transition hover:bg-ink-900/5 hover:text-ink-900 sm:inline-block"
             >
               {t("nav.how")}
-            </Link>
-            <Link
-              href="/trajectories"
-              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-semibold transition ${
-                pathname.startsWith("/trajectories")
-                  ? "bg-ink-900/5 text-ink-900"
-                  : "text-ink-500 hover:bg-ink-900/5 hover:text-ink-900"
-              }`}
-            >
-              <Route className="h-4 w-4" />
-              <span className="hidden sm:inline">{t("nav.trajectories")}</span>
             </Link>
             <LanguageToggle />
             <Link

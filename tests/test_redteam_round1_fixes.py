@@ -7,8 +7,11 @@ Each test is written to FAIL on the vulnerable state and PASS after the fix
 from __future__ import annotations
 
 import hashlib
+import os
 import subprocess
 import sys
+
+import pytest
 from pathlib import Path
 
 from compass import seed_demo
@@ -212,3 +215,89 @@ def test_c_state_surfaces_unlinked_coverage(tmp_path, monkeypatch):
         # gap C names: it does not count until linked. Coverage surfaces it.
         idx_after = {h["id"]: h["index"] for h in after["state"]["hypotheses"]}
         assert idx_after == idx_before
+
+
+# --------------------------------------------------------------- D3 --------
+
+def _run_cli_verify(db: str) -> subprocess.CompletedProcess:
+    """Run the in-package verifier exactly as a CLI-only user would."""
+    env = {**os.environ, "PYTHONPATH": str(REPO / "src")}
+    return subprocess.run(
+        [sys.executable, "-m", "compass", "--db", db, "verify"],
+        capture_output=True, text=True, env=env,
+    )
+
+
+def test_d3_cli_verify_covers_content_not_only_the_chain(tmp_path):
+    """FINDING D3 (follow-on to D1/D2): `compass verify` reported only
+    linkage + integrity, so a CLI-only user saw True/True on a database whose
+    referenced content had been forged. Content is a THIRD signal and the CLI
+    must report it and fail on it, like tools/verify_chain.py and /api/chain."""
+    db = str(tmp_path / "d3.db")
+    _seed(db)
+    baseline = _run_cli_verify(db)
+    assert baseline.returncode == 0, "baseline must verify clean"
+    assert "contenido_ok" in baseline.stdout, (
+        "the CLI must report content as its own signal, never collapse it "
+        "into linkage/integrity"
+    )
+
+    forged = '{"text":"FORGED via the CLI blind spot"}'
+    conn = open_db(db)
+    with conn:
+        conn.execute(
+            "UPDATE evidence SET content = ?, content_hash = ? WHERE id = 1",
+            (forged, hashlib.sha256(forged.encode("utf-8")).hexdigest()),
+        )
+    conn.close()
+
+    # Vulnerable state exits 0 (linkage/integrity untouched); the fix exits 1.
+    forged_run = _run_cli_verify(db)
+    assert forged_run.returncode == 1, (
+        "dual-column content forgery must make `compass verify` fail, not "
+        "just the independent verifier"
+    )
+    assert "contenido_ok : False" in forged_run.stdout
+
+
+def test_d3_cli_verify_keeps_the_three_signals_separate(tmp_path):
+    """A clean base reports all three signals independently — the README
+    invariant is that they are never collapsed into one boolean."""
+    db = str(tmp_path / "d3clean.db")
+    _seed(db)
+    out = _run_cli_verify(db).stdout
+    for signal in ("linkage_ok", "integrity_ok", "contenido_ok"):
+        assert signal in out, f"{signal} must be reported on its own line"
+
+
+def test_d3_agent_verify_tool_also_reports_content(tmp_path, monkeypatch):
+    """The agent's own verifier had the same blind spot as the CLI: it read
+    linkage and integrity only, so a forged evidence row looked clean to the
+    Collaborative Partner. The agent has no scoring authority, but it must not
+    report a healthy chain over tampered content either."""
+    pytest.importorskip("google.adk")
+    monkeypatch.setenv("COMPASS_DB", str(tmp_path / "agent.db"))
+    import importlib
+
+    from compass.agent import agent as agent_module
+    importlib.reload(agent_module)
+
+    _seed(str(tmp_path / "agent.db"))
+    clean = agent_module.verify_audit_chain()
+    assert clean["content_ok"] is True
+    assert {"linkage_ok", "integrity_ok", "content_ok"} <= set(clean)
+
+    forged = '{"text":"FORGED past the agent"}'
+    conn = open_db(str(tmp_path / "agent.db"))
+    with conn:
+        conn.execute(
+            "UPDATE evidence SET content = ?, content_hash = ? WHERE id = 1",
+            (forged, hashlib.sha256(forged.encode("utf-8")).hexdigest()),
+        )
+    conn.close()
+
+    broken = agent_module.verify_audit_chain()
+    assert broken["content_ok"] is False, (
+        "the agent reported a clean chain over forged content"
+    )
+    assert broken["issues"], "the breach must be listed, not just flagged"

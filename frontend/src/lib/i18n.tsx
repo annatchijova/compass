@@ -14,7 +14,6 @@ const dict = {
     // Nav
     "nav.how": "How it works",
     "nav.dashboard": "Open dashboard",
-    "nav.trajectories": "Trajectories",
 
     // Footer
     "footer.rights": "© 2026 COMPASS · No claim without sealed evidence",
@@ -140,6 +139,10 @@ const dict = {
 
     // Errors
     "err.load": "Something went wrong loading the dashboard.",
+    "err.trajectory": "Could not add the trajectory.",
+    "err.trajectoryFit": "Could not load the trajectory fit.",
+    "err.requirement": "Could not add the requirement.",
+    "err.discriminate": "Could not compare the trajectories.",
     "err.refetch": "Refetch failed.",
     "err.validate": "Validation failed.",
     "err.recompute": "Recompute failed.",
@@ -200,67 +203,78 @@ const dict = {
     "example.hypothesis2":
       "Learns fastest by finishing and repairing existing systems, not from a blank page.",
 
-    // Trajectories (vocational fit)
-    "traj.eyebrow": "Vocational fit",
-    "traj.title": "Trajectories",
-    "traj.subtitle":
-      "What to dedicate yourself to, framed as a fit between demonstrated capabilities and what a path requires — never a destiny percentage.",
-    "traj.list.title": "Trajectories",
-    "traj.list.subtitle": "Pick one to see its fit",
-    "traj.list.empty": "No trajectories yet. Create one to map a path.",
-    "traj.create.name": "Trajectory name",
-    "traj.create.namePlaceholder": "e.g. Systems architect",
-    "traj.create.desc": "Description (optional)",
-    "traj.create.descPlaceholder": "What the path is, in a line…",
-    "traj.create.action": "Create trajectory",
-    "traj.select.hint": "Select a trajectory on the left to see its fit.",
-
-    "traj.fit.title": "Fit",
-    "traj.fit.caption":
-      "A fit is which required capabilities have evidence — not a probability of destiny.",
-    "traj.fit.requirements": "Required capabilities",
-    "traj.fit.empty": "No required capabilities yet. Add one below.",
-
-    "traj.summary.met": "Met",
-    "traj.summary.supported": "Supported",
-    "traj.summary.open": "Open",
-    "traj.summary.against": "Against",
-    "traj.summary.discarded": "Discarded",
-    "traj.summary.total": "Total",
-
-    "traj.addReq.title": "Add a required capability",
-    "traj.addReq.pickHypothesis": "Hypothesis",
-    "traj.addReq.pickPlaceholder": "Choose a hypothesis…",
-    "traj.addReq.noHypotheses": "No hypotheses yet — add some on the dashboard first.",
-    "traj.addReq.label": "Requirement label",
-    "traj.addReq.labelPlaceholder": "What this path requires…",
-    "traj.addReq.action": "Add requirement",
-    "traj.addReq.duplicate": "That capability is already a requirement of this trajectory.",
-
-    "traj.disc.title": "Discriminate",
-    "traj.disc.subtitle": "Which capability separates two paths",
-    "traj.disc.pickA": "Trajectory A",
-    "traj.disc.pickB": "Trajectory B",
-    "traj.disc.action": "Compare",
-    "traj.disc.same": "Pick two different trajectories to compare.",
-    "traj.disc.distinguishing": "Distinguishing capabilities",
-    "traj.disc.none": "No open capability separates them right now.",
-    "traj.disc.onlyInA": "only in A",
-    "traj.disc.onlyInB": "only in B",
-    "traj.disc.suggested": "Suggested experiment target",
-
-    "err.trajectories": "Could not load trajectories.",
-    "err.trajCreate": "Could not create the trajectory.",
-    "err.fit": "Could not load the fit.",
-    "err.requirement": "Could not add the requirement.",
-    "err.discriminate": "Could not compare the trajectories.",
-
-    // Fit chip labels
+    // Trajectories (vocational fit) — counts per state, never a percentage
+    "panel.traj.title": "Trajectories",
+    "panel.traj.subtitle":
+      "Vocational fit: what a path requires vs. what your evidence shows",
+    "panel.traj.empty": "No trajectories yet. Name a path you are weighing.",
+    "traj.readonly":
+      "A fit is a projection over already-sealed hypotheses. Opening it recomputes nothing and moves no index.",
+    "traj.noPercentage": "Counts per requirement — never a destiny percentage.",
+    "traj.select": "Trajectory",
+    "traj.addPlaceholder": "name a path you are weighing",
+    "traj.add": "Add trajectory",
+    "traj.requirements": "Capability requirements",
+    "traj.req.empty":
+      "No requirements yet. Add the capabilities this path demands — each backed by a hypothesis.",
+    "traj.req.labelPlaceholder": "capability this path requires",
+    "traj.req.hypothesis": "Backed by hypothesis",
+    "traj.req.add": "Add requirement",
+    "traj.req.needHypothesis":
+      "Add a hypothesis first — a requirement must be backed by one.",
+    "traj.req.allUsed":
+      "Every hypothesis already backs a requirement here. Add a new hypothesis to add another.",
+    "traj.req.backedBy": "hypothesis #{id}",
     "fit.met": "Met",
     "fit.supported": "Supported",
     "fit.open": "Open",
     "fit.against": "Against",
     "fit.discarded": "Discarded",
+    "fit.total": "requirements",
+    "traj.disc.title": "Which path does the next experiment separate?",
+    "traj.disc.pickTwo": "Pick two different trajectories to compare.",
+    "traj.disc.run": "Find the discriminating capability",
+    "traj.disc.suggested": "Cheapest capability to test next",
+    "traj.disc.onlyIn": "required only by {name}",
+    "traj.disc.shared": "{n} requirement(s) shared by both",
+    "traj.disc.distinguishing": "Distinguishing capabilities",
+    "traj.disc.none":
+      "No open capability separates these two right now.",
+    "examples.trajectoryHint": "tap to fill",
+    "example.trajectory1": "Systems engineer on small, high-trust teams",
+    "example.trajectory2": "Independent researcher / technical writer",
+
+    // Concrete suggestions (LLM proposes, the person decides)
+    "sugg.design": "Design an experiment",
+    "sugg.resources": "Find resources",
+    "sugg.draftTitle": "Draft experiment",
+    "sugg.draftNote":
+      "A draft, nothing more — nothing was preregistered and no index moved. Edit it and preregister it yourself.",
+    "sugg.design.label": "Design",
+    "sugg.success.label": "Success criterion",
+    "sugg.failure.label": "Failure criterion",
+    "sugg.failureNote":
+      "The failure criterion is declared before running it. An experiment that can only turn out well discriminates nothing.",
+    "sugg.preregister": "Preregister this experiment",
+    "sugg.discard": "Discard draft",
+    "sugg.resourcesTitle": "Where to run it",
+    "sugg.resourcesNote":
+      "Reading material, not evidence: nothing here entered the ledger and no index moved.",
+    "sugg.grounded": "Found by web search — every source is linked.",
+    "sugg.notGrounded":
+      "NOT searched: these come from the model's own memory, so they carry no source. Configure the Gemini backend to search for real ones.",
+    "sugg.privacy":
+      "Searching sends this capability's wording to Google. That is why it takes a click.",
+    "sugg.sources": "Sources consulted",
+    "sugg.noResources": "No resources came back for this capability.",
+    "kind.course": "course",
+    "kind.community": "community",
+    "kind.project": "project",
+    "kind.reading": "reading",
+    "kind.tool": "tool",
+    "kind.person": "person",
+    "err.design": "Could not draft the experiment.",
+    "err.resources": "Could not look for resources.",
 
     // Compass ID control
     "user.button": "Compass ID",
@@ -281,7 +295,6 @@ const dict = {
     // Nav
     "nav.how": "Cómo funciona",
     "nav.dashboard": "Abrir dashboard",
-    "nav.trajectories": "Trayectorias",
 
     // Footer
     "footer.rights": "© 2026 COMPASS · Ninguna afirmación sin evidencia sellada",
@@ -407,6 +420,10 @@ const dict = {
 
     // Errors
     "err.load": "Algo salió mal al cargar el dashboard.",
+    "err.trajectory": "No se pudo agregar la trayectoria.",
+    "err.trajectoryFit": "No se pudo cargar el fit de la trayectoria.",
+    "err.requirement": "No se pudo agregar el requisito.",
+    "err.discriminate": "No se pudieron comparar las trayectorias.",
     "err.refetch": "Falló la recarga.",
     "err.validate": "Falló la validación.",
     "err.recompute": "Falló el recálculo.",
@@ -467,67 +484,78 @@ const dict = {
     "example.hypothesis2":
       "Aprende más rápido terminando y reparando sistemas existentes que desde una hoja en blanco.",
 
-    // Trayectorias (fit vocacional)
-    "traj.eyebrow": "Fit vocacional",
-    "traj.title": "Trayectorias",
-    "traj.subtitle":
-      "A qué dedicarte, planteado como un fit entre las capacidades demostradas y lo que un camino requiere — nunca un porcentaje de destino.",
-    "traj.list.title": "Trayectorias",
-    "traj.list.subtitle": "Elegí una para ver su fit",
-    "traj.list.empty": "Todavía no hay trayectorias. Creá una para mapear un camino.",
-    "traj.create.name": "Nombre de la trayectoria",
-    "traj.create.namePlaceholder": "ej. Arquitecto de sistemas",
-    "traj.create.desc": "Descripción (opcional)",
-    "traj.create.descPlaceholder": "Qué es el camino, en una línea…",
-    "traj.create.action": "Crear trayectoria",
-    "traj.select.hint": "Seleccioná una trayectoria a la izquierda para ver su fit.",
-
-    "traj.fit.title": "Fit",
-    "traj.fit.caption":
-      "Un fit es qué capacidades requeridas tienen evidencia — no una probabilidad de destino.",
-    "traj.fit.requirements": "Capacidades requeridas",
-    "traj.fit.empty": "Todavía no hay capacidades requeridas. Agregá una abajo.",
-
-    "traj.summary.met": "Cumplido",
-    "traj.summary.supported": "Sostenido",
-    "traj.summary.open": "Abierto",
-    "traj.summary.against": "En contra",
-    "traj.summary.discarded": "Descartado",
-    "traj.summary.total": "Total",
-
-    "traj.addReq.title": "Agregar una capacidad requerida",
-    "traj.addReq.pickHypothesis": "Hipótesis",
-    "traj.addReq.pickPlaceholder": "Elegí una hipótesis…",
-    "traj.addReq.noHypotheses": "Todavía no hay hipótesis — primero agregá alguna en el dashboard.",
-    "traj.addReq.label": "Etiqueta del requisito",
-    "traj.addReq.labelPlaceholder": "Qué requiere este camino…",
-    "traj.addReq.action": "Agregar requisito",
-    "traj.addReq.duplicate": "Esa capacidad ya es un requisito de esta trayectoria.",
-
-    "traj.disc.title": "Discriminar",
-    "traj.disc.subtitle": "Qué capacidad separa dos caminos",
-    "traj.disc.pickA": "Trayectoria A",
-    "traj.disc.pickB": "Trayectoria B",
-    "traj.disc.action": "Comparar",
-    "traj.disc.same": "Elegí dos trayectorias distintas para comparar.",
-    "traj.disc.distinguishing": "Capacidades que distinguen",
-    "traj.disc.none": "Ninguna capacidad abierta las separa ahora mismo.",
-    "traj.disc.onlyInA": "solo en A",
-    "traj.disc.onlyInB": "solo en B",
-    "traj.disc.suggested": "Experimento sugerido",
-
-    "err.trajectories": "No se pudieron cargar las trayectorias.",
-    "err.trajCreate": "No se pudo crear la trayectoria.",
-    "err.fit": "No se pudo cargar el fit.",
-    "err.requirement": "No se pudo agregar el requisito.",
-    "err.discriminate": "No se pudieron comparar las trayectorias.",
-
-    // Etiquetas de fit
+    // Trayectorias (fit vocacional) — cuentas por estado, nunca un porcentaje
+    "panel.traj.title": "Trayectorias",
+    "panel.traj.subtitle":
+      "Fit vocacional: lo que un camino exige vs. lo que muestra tu evidencia",
+    "panel.traj.empty": "Todavía no hay trayectorias. Nombrá un camino que estés sopesando.",
+    "traj.readonly":
+      "El fit es una proyección sobre hipótesis ya selladas. Abrirlo no recalcula nada ni mueve ningún índice.",
+    "traj.noPercentage": "Cuentas por requisito — nunca un porcentaje de destino.",
+    "traj.select": "Trayectoria",
+    "traj.addPlaceholder": "nombrá un camino que estés sopesando",
+    "traj.add": "Agregar trayectoria",
+    "traj.requirements": "Requisitos de capacidad",
+    "traj.req.empty":
+      "Todavía no hay requisitos. Agregá las capacidades que este camino exige — cada una respaldada por una hipótesis.",
+    "traj.req.labelPlaceholder": "capacidad que este camino exige",
+    "traj.req.hypothesis": "Respaldada por la hipótesis",
+    "traj.req.add": "Agregar requisito",
+    "traj.req.needHypothesis":
+      "Agregá una hipótesis primero — un requisito tiene que estar respaldado por una.",
+    "traj.req.allUsed":
+      "Todas las hipótesis ya respaldan un requisito acá. Agregá una hipótesis nueva para sumar otro.",
+    "traj.req.backedBy": "hipótesis #{id}",
     "fit.met": "Cumplido",
-    "fit.supported": "Sostenido",
+    "fit.supported": "Con respaldo",
     "fit.open": "Abierto",
     "fit.against": "En contra",
     "fit.discarded": "Descartado",
+    "fit.total": "requisitos",
+    "traj.disc.title": "¿Qué camino separa el próximo experimento?",
+    "traj.disc.pickTwo": "Elegí dos trayectorias distintas para comparar.",
+    "traj.disc.run": "Buscar la capacidad que discrimina",
+    "traj.disc.suggested": "Capacidad más barata de testear ahora",
+    "traj.disc.onlyIn": "la exige solo {name}",
+    "traj.disc.shared": "{n} requisito(s) compartido(s) por las dos",
+    "traj.disc.distinguishing": "Capacidades que distinguen",
+    "traj.disc.none":
+      "Ninguna capacidad abierta separa a estas dos en este momento.",
+    "examples.trajectoryHint": "tocá para completar",
+    "example.trajectory1": "Ingeniera de sistemas en equipos chicos y de alta confianza",
+    "example.trajectory2": "Investigadora independiente / escritora técnica",
+
+    // Sugerencias concretas (el LLM propone, la persona decide)
+    "sugg.design": "Diseñar un experimento",
+    "sugg.resources": "Buscar recursos",
+    "sugg.draftTitle": "Borrador de experimento",
+    "sugg.draftNote":
+      "Es un borrador y nada más: no se preregistró nada ni se movió ningún índice. Editalo y preregistralo vos.",
+    "sugg.design.label": "Diseño",
+    "sugg.success.label": "Criterio de éxito",
+    "sugg.failure.label": "Criterio de fracaso",
+    "sugg.failureNote":
+      "El criterio de fracaso se declara antes de correrlo. Un experimento que solo puede salir bien no discrimina nada.",
+    "sugg.preregister": "Preregistrar este experimento",
+    "sugg.discard": "Descartar borrador",
+    "sugg.resourcesTitle": "Dónde ir a ejecutarlo",
+    "sugg.resourcesNote":
+      "Material de consulta, no evidencia: nada de esto entró al ledger ni movió ningún índice.",
+    "sugg.grounded": "Encontrados por búsqueda web — cada fuente está enlazada.",
+    "sugg.notGrounded":
+      "SIN buscar: salieron de la memoria del modelo, así que no traen fuente. Configurá el backend Gemini para buscar de verdad.",
+    "sugg.privacy":
+      "Buscar manda el enunciado de esta capacidad a Google. Por eso requiere un clic.",
+    "sugg.sources": "Fuentes consultadas",
+    "sugg.noResources": "No volvió ningún recurso para esta capacidad.",
+    "kind.course": "curso",
+    "kind.community": "comunidad",
+    "kind.project": "proyecto",
+    "kind.reading": "lectura",
+    "kind.tool": "herramienta",
+    "kind.person": "persona",
+    "err.design": "No se pudo redactar el experimento.",
+    "err.resources": "No se pudieron buscar recursos.",
 
     // Control de Compass ID
     "user.button": "Compass ID",

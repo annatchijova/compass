@@ -34,7 +34,7 @@ import os
 from google.adk import Agent
 
 from .. import domain, engine, views
-from ..audit_chain import verify_chain
+from ..audit_chain import verify_chain, verify_content
 from ..db import open_db
 from ..llm import Extractor, backend_from_env
 
@@ -67,15 +67,20 @@ def get_compass_state() -> dict:
 
 
 def verify_audit_chain() -> dict:
-    """Verifica la cadena de auditoría y devuelve linkage e integrity por
-    separado, más la lista de problemas. Una cadena sana es linkage_ok y
-    integrity_ok en true. Reportá el quiebre si aparece; nunca lo laves.
+    """Verifica la cadena de auditoría y devuelve TRES señales por separado,
+    más la lista de problemas: linkage (la cadena engancha), integrity (cada
+    sobre re-hashea) y content (lo que la evidencia dice hoy sigue siendo lo
+    que la cadena selló). Una cadena sana tiene las tres en true. Sin la
+    tercera, una edición de contenido pasaba inadvertida (Red Team R1, D1).
+    Reportá el quiebre si aparece; nunca lo laves.
     """
     conn = _conn()
     try:
         r = verify_chain(conn)
+        c = verify_content(conn)
         return {"linkage_ok": r.linkage_ok, "integrity_ok": r.integrity_ok,
-                "issues": r.issues}
+                "content_ok": c.content_ok,
+                "issues": r.issues + c.issues}
     finally:
         conn.close()
 

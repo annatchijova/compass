@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import sqlite3
 
-from . import domain, engine
+from . import domain, engine, trajectories
 
 
 def is_seeded(conn: sqlite3.Connection) -> bool:
@@ -116,6 +116,39 @@ def seed(conn: sqlite3.Connection) -> dict:
                           "competent reviewer in a new domain.")
 
     result = engine.recompute_all(conn)
+
+    # Two rival TRAJECTORIES over the same two hypotheses. Seeded AFTER the
+    # recompute on purpose: the fit is a projection over hypotheses that are
+    # already sealed. Adding a trajectory or a requirement moves no index and
+    # changes no seal — `test_trajectories_do_not_move_the_sealed_state` locks
+    # that in. Each requirement is BACKED BY a hypothesis, which is what keeps
+    # a trajectory from becoming a wish list.
+    t_architect = trajectories.trajectory_add(
+        conn,
+        name="Systems architect on small, high-trust teams",
+        description="Owns an end-to-end architecture and defends it under "
+        "critique.",
+    )
+    trajectories.requirement_add(
+        conn, trajectory_id=t_architect, hypothesis_id=h_design,
+        label="Closes an end-to-end architecture unaided",
+    )
+    trajectories.requirement_add(
+        conn, trajectory_id=t_architect, hypothesis_id=h_execution,
+        label="Sustains output without an external scaffold",
+    )
+
+    t_delivery = trajectories.trajectory_add(
+        conn,
+        name="High-tempo delivery engineer",
+        description="Ships fast inside a structure someone else designed.",
+    )
+    trajectories.requirement_add(
+        conn, trajectory_id=t_delivery, hypothesis_id=h_execution,
+        label="Performs under deadline on an existing scaffold",
+    )
+
     return {"seeded": True, "seal": result["seal"],
             "hypotheses": [h_design, h_execution],
+            "trajectories": [t_architect, t_delivery],
             "results": result["results"]}

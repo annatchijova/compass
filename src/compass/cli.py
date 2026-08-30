@@ -14,7 +14,7 @@ import os
 import sys
 
 from . import domain, engine, trajectories, views
-from .audit_chain import verify_chain
+from .audit_chain import verify_chain, verify_content
 from .db import open_db
 from .llm import Narrator, backend_from_env
 
@@ -189,15 +189,26 @@ def cmd_traj_discriminate(args):
 
 
 def cmd_verify(args):
+    """Tres señales SEPARADAS, nunca colapsadas en un solo booleano:
+    linkage (la cadena engancha), integrity (cada sobre re-hashea) y
+    contenido (lo que la evidencia dice hoy sigue siendo lo que la cadena
+    selló). Sin la tercera, una falsificación de dos columnas pasaba con
+    True/True para quien solo usa el CLI (Red Team R1, D1/D2)."""
     conn = open_db(_db_path(args))
     report = verify_chain(conn)
+    content = verify_content(conn)
     print(f"linkage_ok   : {report.linkage_ok}")
     print(f"integrity_ok : {report.integrity_ok}")
+    print(f"contenido_ok : {content.content_ok} "
+          f"({content.tombstones} tombstone(s) declarados)")
     for issue in report.issues:
         print(f"  [seq {issue['seq']}] {issue['kind']}: {issue['detail']}")
+    for issue in content.issues:
+        print(f"  [evidence {issue['evidence_id']}] {issue['kind']}: "
+              f"{issue['detail']}")
     print("(el verificador independiente vive en tools/verify_chain.py "
           "y no confía en este código)")
-    return 0 if report.ok else 1
+    return 0 if (report.ok and content.content_ok) else 1
 
 
 def build_parser() -> argparse.ArgumentParser:

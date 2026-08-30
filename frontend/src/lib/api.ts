@@ -14,8 +14,10 @@ import type {
   AbduceResponse,
   EvidenceType,
   TrajectoriesResponse,
-  FitResponse,
+  TrajectoryFitResponse,
   DiscriminateResponse,
+  DesignExperimentResponse,
+  ResourcesResponse,
 } from "./types";
 import { getUserId } from "./session";
 
@@ -161,17 +163,31 @@ export const narrate = (language: "English" | "Spanish" = "English") =>
     { method: "POST" },
   );
 
-/* ─────────────────────────── Trajectories ─────────────────────────── */
+/* ── Trajectories (vocational fit) ───────────────────────────────────────
+   Reads are pure projections over ALREADY-SEALED hypotheses: asking for a
+   fit never recomputes and never moves an index. The backend answers in
+   counts per state — there is no destiny percentage to render. */
 
 export const getTrajectories = () =>
   request<TrajectoriesResponse>("/api/trajectories");
 
+export const getTrajectoryFit = (id: number | string) =>
+  request<TrajectoryFitResponse>(`/api/trajectories/${id}/fit`);
+
+export const discriminate = (a: number | string, b: number | string) =>
+  request<DiscriminateResponse>(
+    `/api/trajectories/discriminate?a=${encodeURIComponent(String(a))}` +
+      `&b=${encodeURIComponent(String(b))}`,
+  );
+
 export const postTrajectory = (body: { name: string; description?: string }) =>
   request<{ trajectory_id: number | string }>("/api/trajectories", {
     method: "POST",
-    body: JSON.stringify(body),
+    body: JSON.stringify({ description: "", ...body }),
   });
 
+// A requirement is a capability the path demands, BACKED BY A HYPOTHESIS —
+// that is what keeps the fit anchored to evidence instead of to a wish.
 export const postRequirement = (
   trajectoryId: number | string,
   body: { hypothesis_id: number | string; label: string },
@@ -181,10 +197,20 @@ export const postRequirement = (
     { method: "POST", body: JSON.stringify(body) },
   );
 
-export const getFit = (trajectoryId: number | string) =>
-  request<FitResponse>(`/api/trajectories/${trajectoryId}/fit`);
+/* ── Concrete suggestions ────────────────────────────────────────────────
+   Neither call writes: they return drafts and reading material. Nothing is
+   preregistered until the person posts it to /api/experiments themselves. */
 
-export const getDiscriminate = (a: number | string, b: number | string) =>
-  request<DiscriminateResponse>(
-    `/api/trajectories/discriminate?a=${encodeURIComponent(String(a))}&b=${encodeURIComponent(String(b))}`,
-  );
+export const designExperiment = (hypothesisId: number | string) =>
+  request<DesignExperimentResponse>("/api/experiments/design", {
+    method: "POST",
+    body: JSON.stringify({ hypothesis_id: Number(hypothesisId) }),
+  });
+
+// Privacy: with a searching backend this sends the capability statement to
+// Google. It is always an explicit click, never automatic.
+export const findResources = (hypothesisId: number | string) =>
+  request<ResourcesResponse>("/api/resources", {
+    method: "POST",
+    body: JSON.stringify({ hypothesis_id: Number(hypothesisId) }),
+  });

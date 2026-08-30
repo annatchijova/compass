@@ -62,7 +62,7 @@ def test_v1_data_survives_migration_to_v2(tmp_path):
 
 # ------------------------------------------------------- fit + domain ------
 
-from compass import seed_demo, trajectories  # noqa: E402
+from compass import seed_demo, trajectories, views  # noqa: E402
 from compass.audit_chain import verify_chain  # noqa: E402
 
 
@@ -173,8 +173,63 @@ def test_api_trajectories_cycle(tmp_path, monkeypatch):
                json={"hypothesis_id": 1, "label": "Designs end to end"})
         fit = c.get(f"/api/trajectories/{tid}/fit").json()
         assert fit["summary"]["met"] == 1
-        assert [t["id"] for t in c.get("/api/trajectories").json()["trajectories"]] == [tid]
+        listed = [t["id"] for t in c.get("/api/trajectories").json()["trajectories"]]
+        # The demo seed ships two rival trajectories; this one is appended.
+        assert listed == [1, 2, tid]
         # duplicate requirement -> 400 at the boundary
         dup = c.post(f"/api/trajectories/{tid}/requirements",
                      json={"hypothesis_id": 1, "label": "again"})
         assert dup.status_code == 400
+
+
+def test_trajectories_do_not_move_the_sealed_state(tmp_path):
+    """A trajectory is a PROJECTION over sealed hypotheses, never an input to
+    them. Adding trajectories and requirements must leave both the sealed
+    state and a fresh recompute bit-for-bit identical — otherwise the
+    vocational layer would have quietly acquired scoring authority.
+
+    Red-first: this fails the moment anything in the trajectory write path
+    reaches into the engine or the sealed view.
+    """
+    conn = open_db(str(tmp_path / "seal.db"))
+    info = seed_demo.seed(conn)
+    h_design, h_execution = info["hypotheses"]
+
+    state_before = views.sealed_state(conn)["seal"]
+    recompute_before = info["seal"]
+
+    tid = trajectories.trajectory_add(conn, name="A new path",
+                                      description="added after sealing")
+    trajectories.requirement_add(conn, trajectory_id=tid,
+                                 hypothesis_id=h_design, label="cap A")
+    trajectories.requirement_add(conn, trajectory_id=tid,
+                                 hypothesis_id=h_execution, label="cap B")
+    # Reading a fit must be side-effect free too.
+    trajectories.trajectory_fit(conn, tid)
+
+    assert views.sealed_state(conn)["seal"] == state_before, (
+        "adding a trajectory changed the sealed state — the fit must only READ"
+    )
+    assert engine.recompute_all(conn)["seal"] == recompute_before, (
+        "a trajectory moved an index: the vocational layer must have no "
+        "scoring authority"
+    )
+
+
+def test_demo_seed_ships_two_rival_trajectories(tmp_path):
+    """The hosted demo must land on an explorable vocational fit, not an empty
+    panel: two rival trajectories over the same sealed hypotheses, one of them
+    with a capability the other does not require (so `discriminate` has
+    something to separate)."""
+    conn = open_db(str(tmp_path / "seeded.db"))
+    info = seed_demo.seed(conn)
+    assert len(info["trajectories"]) == 2
+
+    a, b = info["trajectories"]
+    fit_a = trajectories.trajectory_fit(conn, a)
+    assert fit_a["summary"]["total"] == 2
+    # Counts only — a destiny percentage must never appear in the contract.
+    assert "percentage" not in fit_a["summary"] and "ratio" not in fit_a["summary"]
+
+    result = trajectories.discriminating_requirements(conn, a, b)
+    assert result["shared_requirements"], "the two paths must share a requirement"

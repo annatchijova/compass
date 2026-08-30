@@ -2,10 +2,16 @@
 
 **An adaptive personal-navigation partner. A compass, not a mirror.**
 
-COMPASS helps a person discover their own capabilities and direction from
-evidence of their own life, through cycles of hypothesis → experiment →
-update. Two invariants separate it from a personality test with a chatbot
-bolted on:
+COMPASS is a vocational-orientation tool built the opposite way round from
+the usual one. Instead of asking you to rate yourself and returning a
+confident profile, it treats "what should I dedicate myself to" as a **fit
+between capabilities you have demonstrated and what a path actually
+requires** — and it makes you go find out. Each capability is a hypothesis;
+the system proposes a concrete, preregistered experiment that would
+discriminate it, you run it in your life, and the outcome moves an index
+that a deterministic engine — never a model — computes and seals.
+
+Two invariants separate it from a personality test with a chatbot bolted on:
 
 1. **No claim about the person exists without recorded, sealed evidence.**
 2. **No number describing the person ever comes out of an LLM.** A
@@ -77,6 +83,44 @@ never touches the decision path:
   or the chain of custody. This is enforced by
   `tests/test_hackathon_layer.py::test_swapping_narrator_backend_never_changes_the_seal`.
 
+### What Gemini actually does here
+
+Growing the model's presence means growing what it *proposes*, never what it
+decides. Four roles, none with authority:
+
+| Role | Proposes | Person's act |
+|---|---|---|
+| **Extractor** | candidate signals from a narrative | validating one is what makes it evidence |
+| **Abductor** | rival hypotheses about a capability | keeping or discarding one |
+| **Experiment designer** | a discriminating experiment for an open capability — design, success criterion, and the **failure criterion declared before running it** | editing it and preregistering it |
+| **Resource finder** | concrete places to go *run* that experiment — a course, community, open project, reading, tool, or kind of person — found by Google Search on Vertex, each with its source | deciding whether any is worth their time |
+
+The last two answer the question a vocational test usually dodges: not "what
+are you like" but **"what do you do on Monday to find out"**.
+
+Both are proposals in the strict sense — asking for either writes nothing,
+appends nothing to the chain, and moves no index. That is not a convention,
+it is a test: `test_suggesting_moves_no_sealed_number` compares the sealed
+state, the chain length and a fresh recompute across both calls, and fails
+if any of them budges.
+
+Two honesty rules the resource finder carries, because it is the first
+feature that reads the outside world:
+
+- **Web content is data, never instruction.** It is parsed, validated
+  against a closed schema (a fixed vocabulary of resource kinds, bounded
+  lengths, the same no-percentages guard the narrator has), rendered as
+  text and links, and never executed. Non-`http(s)` URLs are stripped at
+  the boundary.
+- **A search says it searched.** Backends that cannot search return
+  `grounded: false` and the UI says so in as many words, with no URLs
+  attached. Presenting a model's memory as a search would be exactly the
+  unsupported claim this project exists to refuse. Nothing found is
+  evidence: resources live outside the seal and never enter the ledger.
+
+Searching sends the capability's wording to Google, so it is always an
+explicit click — never something the system does on its own (design doc §6).
+
 ---
 
 ## Architecture
@@ -144,11 +188,17 @@ no credential and no cloud, using a role-aware `demo` backend.
 ### 1. The core cycle (CLI, offline)
 
 ```bash
-python3 -m pytest                          # 119 tests
-PYTHONPATH=src python3 -m compass init     # then: person, hyp, evidence, link,
-                                           # exp, recompute, compass, traj, verify ...
+python3 -m pytest                          # 138 tests — see "Tests" for the extras
+PYTHONPATH=src python3 -m compass init     # then: person, evidence, hyp, link, exp,
+                                           # observe, reflect, recompute, compass,
+                                           # traj, verify
 python3 tools/verify_chain.py compass.db   # independent, stdlib-only verifier
 ```
+
+`compass verify` reports the three chain signals separately — linkage,
+integrity and content — and exits non-zero if any of them breaks. Its own
+output strings are still Spanish-only (the API, the narrator and the web app
+are bilingual EN/ES).
 
 **Trajectories (vocational fit).** "What to dedicate yourself to" is treated as
 a *fit* between demonstrated capabilities and what a path requires — never a
@@ -167,7 +217,7 @@ confirming the audit chain does not require trusting the code that wrote it.
 ### 2. The API + web app (local)
 
 ```bash
-pip install '.[api]'                        # fastapi + uvicorn
+pip install '.[api]'                        # fastapi + uvicorn + google-cloud-storage
 COMPASS_BACKEND=demo COMPASS_DB=/tmp/compass.db \
   uvicorn compass.api:app --reload --port 8080
 # → http://localhost:8080/health  and  /docs
@@ -180,6 +230,13 @@ immediately. Then, in `frontend/`:
 cd frontend && npm install
 NEXT_PUBLIC_API_URL=http://localhost:8080 npm run dev   # → http://localhost:3000
 ```
+
+The web app covers the evidence → hypothesis → experiment cycle, the audit
+chain (linkage, integrity *and* content), the three LLM roles
+(`extract` / `abduce` / `narrate`), and the trajectory fit — counts per
+requirement, never a destiny percentage. The demo scenario seeds two rival
+trajectories over the same sealed hypotheses, so the fit is explorable on the
+first visit.
 
 ### 3. With the real Gemini model
 
@@ -211,7 +268,7 @@ gcloud run deploy compass --source . --region us-central1 --allow-unauthenticate
   --session-affinity --min-instances 1 \
   --set-env-vars COMPASS_BACKEND=gemini,GOOGLE_GENAI_USE_VERTEXAI=TRUE,\
 GOOGLE_CLOUD_PROJECT=vigia-497422,GOOGLE_CLOUD_LOCATION=global,\
-COMPASS_GCS_BUCKET=compass-user-data-vigia-497422
+COMPASS_MODEL=gemini-2.5-flash,COMPASS_GCS_BUCKET=compass-user-data-vigia-497422
 ```
 
 ---
@@ -235,6 +292,20 @@ COMPASS_GCS_BUCKET=compass-user-data-vigia-497422
   before every append, and linkage/integrity reported *separately* (never
   collapsed into one boolean). Deleting content leaves an honest, visible
   tombstone in the chain, never a silent gap.
+- **Referenced content is bound to the chain, not to a mutable column.**
+  `verify_content` re-hashes live evidence against the `content_hashes` sealed
+  *inside* each chain envelope, so editing the text and its `content_hash`
+  together is still detected (Red Team Round 1, finding D1). Reported as a
+  third, separate signal: `content_ok` on `/api/chain`, `chain_content_ok` on
+  `/health`, and `contenido_ok` in `tools/verify_chain.py`.
+- **The narrator cannot dress the index as a probability.** `validate_prose`
+  fail-closed rejects any percentage in the narration before it is stored.
+- **Schema creation is all-or-nothing, even under concurrent openers.** The
+  migration chain runs in one transaction whose write lock is taken *before*
+  the stored version is read, so several connections opening the same brand-new
+  base — exactly what a first page load does, three requests in parallel —
+  cannot observe a half-created schema. Locked in by
+  `tests/test_db.py::test_schema_bootstrap_is_atomic_under_concurrent_openers`.
 - **Determinism is proven, not asserted:** the same input produces the same
   seal bit-for-bit across fresh processes with a different `PYTHONHASHSEED`.
 
@@ -244,15 +315,28 @@ COMPASS_GCS_BUCKET=compass-user-data-vigia-497422
 
 A known limitation is an asset. What this project does **not** yet claim:
 
-- **Gemini is not tested live in this environment.** The contract is tested
-  via the offline backends; the first real call may surface response-shape
-  differences. (Same honesty the skeleton always kept about the
-  Anthropic/Ollama backends.)
+- **Gemini's live coverage is one model, one transport, exercised by hand.**
+  Gemini *has* now run in production (`gemini-2.5-flash` on Vertex, same seal
+  as the offline backend), but no automated test makes a real call: the suite
+  proves the contract against the offline backends only. Another model,
+  region, or SDK version could still surface response-shape differences.
+  (Same honesty the skeleton always kept about the Anthropic/Ollama backends.)
+- **The grounded search path has never run against Vertex.** `GeminiBackend
+  .search` and the citation extraction are written against `google-genai`
+  2.x and covered by a stub backend in the suite; no real Google Search call
+  has been made from this project yet. The parsing is deliberately
+  defensive — missing grounding metadata yields no sources rather than
+  invented ones — but the first live call is the one that will confirm the
+  response shape.
 - **The prompts (extractor/abductor/narrator) are v0, un-audited
   adversarially.** A model captured by a persuasive narrative can propose
   biased *candidates* — the structural mitigation is that nothing enters the
   ledger without the person's validation and no number leaves the model, but
   the quality of proposals is not measured.
+- **The prose guard is syntactic, not semantic** (Red Team Round 1, finding A,
+  partially fixed). `validate_prose` rejects percentages deterministically; it
+  does not catch a smuggled certainty claim in words ("essentially certain").
+  A semantic audit of the narration is v2.
 - **The engine weights are PROVISIONAL** (`decision_record` #1 records the
   reopening condition: an audit with real data). They unblock the skeleton;
   they are not tuned.
@@ -273,13 +357,48 @@ A known limitation is an asset. What this project does **not** yet claim:
   chain makes tampering *detectable* against a verifier holding a prior tail
   hash, not impossible. Anchoring that hash off-machine is an open decision.
 
+The adversarial audit behind several of these — five findings, their
+falsification attempts, and what was fixed versus mitigated — is in
+[`docs/RED_TEAM_ROUND1.md`](docs/RED_TEAM_ROUND1.md).
+
+---
+
+## Still open
+
+Not blind spots (those are above, and are properties of the design) — this is
+work that is simply not done yet.
+
+| # | Open item | Where it bites |
+|---|---|---|
+| 1 | **Demo video not recorded.** | README and `docs/SUBMISSION.md` both still say *to be filled*. |
+| 2 | **The demo scenario cannot exercise `discriminate`.** Both seeded hypotheses are already resolved (one corroborated, one weakened), and only an *unresolved* capability required by exactly one path can discriminate. | The trajectory comparison always lands on its honest empty case, so the cheapest-next-experiment logic is never demonstrated. Seeding a third, still-latent capability would fix it — and would also change the dashboard's "single next step". |
+| 3 | **The CLI speaks Spanish only.** The API, narrator and frontend are bilingual EN/ES. | Mixed-language experience for anyone driving the core from a terminal. |
+| 4 | **Engine weights still provisional.** `decision_record` #1 names the reopening condition: an audit against real data. | Every index is "accumulation under v1 rules", not a tuned measurement. |
+| 5 | **Narration is not semantically audited** (Red Team finding A, partial). | A certainty claim in words can still slip past the percentage guard. |
+| 6 | **Tail hash is not anchored off-machine.** | Tampering is detectable only by a verifier that already holds a prior tail. |
+| 7 | **No self-perception-vs-data confrontation yet.** | The design's confrontation step (with a deliberately careful threshold) is unimplemented. |
+
 ---
 
 ## Tests
 
 ```bash
-python3 -m pytest -q      # 100 tests
+pip install pytest '.[api,gemini,adk]'
+python3 -m pytest -q      # 138 tests, all green
 ```
+
+**What each extra buys you.** The suite is layered like the code: the core
+tests are stdlib-only, the rest need the extra whose surface they cover.
+
+| Installed | Result (138 collected) |
+|---|---|
+| nothing (stdlib) | 125 pass · 7 fail + 4 error, all `ModuleNotFoundError: fastapi` · 2 skip |
+| `.[api]` | 134 pass · 2 fail — the `GeminiBackend` fail-closed tests need `google-genai` · 2 skip |
+| `.[api,gemini]` | 136 pass · 2 skip — the ADK tests need `google-adk` |
+| `.[api,gemini,adk]` | 138 pass |
+
+Failures in the first two rows are missing dependencies, not regressions; the
+core's own tests never need anything but the stdlib.
 
 Red-first: every negative control adulterates the source of truth and
 asserts detection. Executed mutations are caught (dropping `prev_hash` from

@@ -169,59 +169,103 @@ export interface AbduceResponse {
   state_seal: string;
 }
 
-/* ─────────────────────────── Trajectories ─────────────────────────── */
+/* ── Trajectories (vocational fit) ───────────────────────────────────────
+   "What to dedicate yourself to" as a FIT between demonstrated capabilities
+   and what a path requires — counts per state, never a destiny percentage.
+   The fit only READS sealed hypotheses; it moves no index. */
 
-// A fit is which required capabilities have evidence — NOT a probability.
-export type FitStatus = "met" | "supported" | "open" | "against" | "discarded";
+export type FitState = "met" | "supported" | "open" | "against" | "discarded";
 
 export interface Trajectory {
   id: number | string;
   name: string;
-  description?: string | null;
+  description: string;
 }
 
 export interface TrajectoriesResponse {
   trajectories: Trajectory[];
 }
 
-export interface FitRequirement {
+export interface TrajectoryRequirement {
   requirement_id: number | string;
   hypothesis_id: number | string;
   label: string;
   hypothesis_statement: string;
   hypothesis_status: HypothesisStatus;
   index: number | null;
-  fit: FitStatus;
+  fit: FitState;
 }
 
-export interface FitSummary {
-  met: number;
-  supported: number;
-  open: number;
-  against: number;
-  discarded: number;
-  total: number;
-}
+/** Counts per fit state plus `total` — deliberately no ratio, no percentage. */
+export type FitSummary = Record<FitState, number> & { total: number };
 
-export interface FitResponse {
+export interface TrajectoryFitResponse {
   trajectory: Trajectory;
-  requirements: FitRequirement[];
+  requirements: TrajectoryRequirement[];
   summary: FitSummary;
 }
 
-export interface DistinguishingCapability {
+export interface DistinguishingRequirement {
   hypothesis_id: number | string;
   label: string;
   only_in: "a" | "b";
-  fit: FitStatus;
-  index: number | null;
+  fit: FitState;
+  index: number;
 }
 
 export interface DiscriminateResponse {
   trajectory_a: Trajectory;
   trajectory_b: Trajectory;
   shared_requirements: (number | string)[];
-  distinguishing: DistinguishingCapability[];
-  suggested_experiment_target: DistinguishingCapability | null;
+  distinguishing: DistinguishingRequirement[];
+  suggested_experiment_target: DistinguishingRequirement | null;
   note: string;
+}
+
+/* ── Concrete suggestions from the LLM ───────────────────────────────────
+   Both are PROPOSALS: they live outside the seal, write nothing to the
+   ledger, and move no index. The person edits and decides. */
+
+export interface ExperimentDraft {
+  design: string;
+  success_criterion: string;
+  failure_criterion: string;
+}
+
+export interface DesignExperimentResponse {
+  hypothesis_id: number | string;
+  hypothesis_statement: string;
+  draft: ExperimentDraft;
+  note?: string;
+}
+
+export type ResourceKind =
+  | "course"
+  | "community"
+  | "project"
+  | "reading"
+  | "tool"
+  | "person";
+
+export interface Resource {
+  title: string;
+  kind: ResourceKind;
+  why: string;
+  /** Empty when the model found no source. Never render a link for "". */
+  url: string;
+}
+
+export interface GroundingSource {
+  title: string;
+  uri: string;
+}
+
+export interface ResourcesResponse {
+  hypothesis_id: number | string;
+  capability: string;
+  resources: Resource[];
+  /** False = these came from the model's memory, NOT from a real search. */
+  grounded: boolean;
+  sources: GroundingSource[];
+  note?: string;
 }

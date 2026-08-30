@@ -36,7 +36,7 @@ from . import domain, engine, seed_demo, storage, trajectories, views
 from .audit_chain import verify_chain, verify_content
 from .db import EVIDENCE_TYPES, open_db
 from .llm import (Abductor, Extractor, LLMOutputError, Narrator,
-                  backend_from_env)
+                  ResourceFinder, backend_from_env)
 
 
 @contextmanager
@@ -445,6 +445,80 @@ def abduce_hypotheses(uid: str = Depends(get_uid)) -> dict:
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"error del backend LLM: {exc}")
     return {"proposals": proposals, "state_seal": sealed["seal"]}
+
+
+class HypothesisRefIn(BaseModel):
+    hypothesis_id: int
+
+
+def _hypothesis_statement(conn, hypothesis_id: int) -> str:
+    row = conn.execute("SELECT statement FROM hypothesis WHERE id = ?",
+                       (hypothesis_id,)).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404,
+                            detail=f"hypothesis id={hypothesis_id} no existe")
+    return row["statement"]
+
+
+@app.post("/api/experiments/design")
+def design_experiment(body: HypothesisRefIn, uid: str = Depends(get_uid)) -> dict:
+    """Diseñador de experimentos (rol LLM SIN autoridad): dada una hipótesis,
+    REDACTA un borrador de experimento discriminante con su criterio de
+    fracaso declarado de antemano.
+
+    Es un borrador y nada más: no persiste, no preregistra y no mueve ningún
+    índice. Preregistrarlo (POST /api/experiments), con o sin ediciones, es
+    un acto de la persona. Que el criterio de fracaso venga escrito desde el
+    borrador es justamente lo que evita el confirmation-only testing que el
+    esquema bloquea (design doc §4).
+    """
+    with _db(uid) as conn:
+        statement = _hypothesis_statement(conn, body.hypothesis_id)
+    backend = backend_from_env()
+    try:
+        draft = Abductor(backend).design_experiment(statement)
+    except LLMOutputError as exc:
+        raise HTTPException(status_code=422,
+                            detail=f"salida del modelo rechazada en frontera: {exc}")
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"error del backend LLM: {exc}")
+    return {"hypothesis_id": body.hypothesis_id,
+            "hypothesis_statement": statement,
+            "draft": draft,
+            "note": "borrador: nada se preregistró y ningún índice se movió; "
+            "editalo y preregistralo vos"}
+
+
+@app.post("/api/resources")
+def find_resources(body: HypothesisRefIn, uid: str = Depends(get_uid)) -> dict:
+    """Buscador de recursos (rol LLM SIN autoridad): dónde ir a EJECUTAR el
+    experimento de una capacidad.
+
+    Lo que devuelve es material de consulta: vive fuera del sello, no entra
+    al ledger, nadie lo valida y no mueve ningún índice. `grounded` dice si
+    los recursos salieron de una búsqueda real (con `sources` citables) o de
+    la memoria del modelo; la UI TIENE que mostrar esa diferencia en vez de
+    presentar como buscado algo que no lo fue.
+
+    Privacidad (design doc §6): con un backend que busca, esta llamada manda
+    el enunciado de la capacidad a Google. Por eso es una acción explícita de
+    la persona y no algo que el sistema haga solo.
+    """
+    with _db(uid) as conn:
+        statement = _hypothesis_statement(conn, body.hypothesis_id)
+    backend = backend_from_env()
+    try:
+        found = ResourceFinder(backend).find(statement)
+    except LLMOutputError as exc:
+        raise HTTPException(status_code=422,
+                            detail=f"salida del modelo rechazada en frontera: {exc}")
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"error del backend LLM: {exc}")
+    return {"hypothesis_id": body.hypothesis_id,
+            "capability": statement,
+            **found,
+            "note": "recursos de consulta: no son evidencia, no entran al "
+            "ledger y no movieron ningún índice"}
 
 
 @app.post("/api/narrate")

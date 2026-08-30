@@ -80,10 +80,11 @@ impossible. An honest WARN beats a false PASS.
 
 ## What's next
 
-Trajectories (capability-requirement maps, no destiny percentages), a
+Trajectories (capability-requirement maps, no destiny percentages) now ship in
+the CLI and the API; giving them a screen in the web app is next. Then a
 self-perception-vs-data confrontation with a careful threshold, off-machine
 anchoring of the tail hash, and tuning the provisional weights against real
-dogfooding data.
+dogfooding data. The full list is under "Still open" in the README.
 
 ## Hackathon checklist
 

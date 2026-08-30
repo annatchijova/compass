@@ -36,10 +36,6 @@ The three mandatory boxes, all checked:
 | **Google agent framework** | **ADK** — `compass.agent.root_agent` (`src/compass/agent/agent.py`): a Collaborative Partner whose authority is exactly its tool set. |
 | **Google Cloud service** | **Cloud Run** hosts the FastAPI backend; **Vertex AI** serves Gemini through the service identity (no API key stored). See [`DEPLOY.md`](DEPLOY.md). |
 
-- **Live backend (Cloud Run + Gemini/Vertex):** https://compass-1028999311218.us-central1.run.app
-  ([`/health`](https://compass-1028999311218.us-central1.run.app/health) ·
-  [`/api/state`](https://compass-1028999311218.us-central1.run.app/api/state) ·
-  [`/docs`](https://compass-1028999311218.us-central1.run.app/docs))
 - **Live web app (Cloud Run):** https://compass-web-1028999311218.us-central1.run.app
 - **Demo video:** _to be filled_
 - **Architecture diagram:** below, and in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
@@ -410,4 +406,6 @@ order does not change the index.
 
 ## License
 
-[Apache-2.0](LICENSE).
+Copyright 2026 Olga Vasilieva.
+
+Licensed under [Apache-2.0](LICENSE).

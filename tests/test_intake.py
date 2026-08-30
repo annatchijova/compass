@@ -76,8 +76,11 @@ def test_high_investigative_proposes_that_hypothesis(db):
         intake.submit_response(db, aid, it["code"],
                                5 if it["dimension"] == "I" else 1)
     sc = intake.score(db, aid)
-    assert sc["dimensions"]["I"]["raw"] == 10   # 2 items x 5, integer
-    assert sc["dimensions"]["R"]["raw"] == 2    # 2 items x 1
+    items = intake.items("riasec", "en")
+    n_i = sum(1 for it in items if it["dimension"] == "I")
+    n_r = sum(1 for it in items if it["dimension"] == "R")
+    assert sc["dimensions"]["I"]["raw"] == 5 * n_i   # all I at 5, integer
+    assert sc["dimensions"]["R"]["raw"] == 1 * n_r   # all R at 1
     props = intake.proposed_hypotheses(db, aid)
     dims = {p["dimension"] for p in props["proposals"]}
     assert "I" in dims and "R" not in dims

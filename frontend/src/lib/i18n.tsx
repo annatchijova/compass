@@ -14,6 +14,7 @@ const dict = {
     // Nav
     "nav.how": "How it works",
     "nav.dashboard": "Open dashboard",
+    "nav.trajectories": "Trajectories",
 
     // Footer
     "footer.rights": "© 2026 COMPASS · No claim without sealed evidence",
@@ -199,6 +200,68 @@ const dict = {
     "example.hypothesis2":
       "Learns fastest by finishing and repairing existing systems, not from a blank page.",
 
+    // Trajectories (vocational fit)
+    "traj.eyebrow": "Vocational fit",
+    "traj.title": "Trajectories",
+    "traj.subtitle":
+      "What to dedicate yourself to, framed as a fit between demonstrated capabilities and what a path requires — never a destiny percentage.",
+    "traj.list.title": "Trajectories",
+    "traj.list.subtitle": "Pick one to see its fit",
+    "traj.list.empty": "No trajectories yet. Create one to map a path.",
+    "traj.create.name": "Trajectory name",
+    "traj.create.namePlaceholder": "e.g. Systems architect",
+    "traj.create.desc": "Description (optional)",
+    "traj.create.descPlaceholder": "What the path is, in a line…",
+    "traj.create.action": "Create trajectory",
+    "traj.select.hint": "Select a trajectory on the left to see its fit.",
+
+    "traj.fit.title": "Fit",
+    "traj.fit.caption":
+      "A fit is which required capabilities have evidence — not a probability of destiny.",
+    "traj.fit.requirements": "Required capabilities",
+    "traj.fit.empty": "No required capabilities yet. Add one below.",
+
+    "traj.summary.met": "Met",
+    "traj.summary.supported": "Supported",
+    "traj.summary.open": "Open",
+    "traj.summary.against": "Against",
+    "traj.summary.discarded": "Discarded",
+    "traj.summary.total": "Total",
+
+    "traj.addReq.title": "Add a required capability",
+    "traj.addReq.pickHypothesis": "Hypothesis",
+    "traj.addReq.pickPlaceholder": "Choose a hypothesis…",
+    "traj.addReq.noHypotheses": "No hypotheses yet — add some on the dashboard first.",
+    "traj.addReq.label": "Requirement label",
+    "traj.addReq.labelPlaceholder": "What this path requires…",
+    "traj.addReq.action": "Add requirement",
+    "traj.addReq.duplicate": "That capability is already a requirement of this trajectory.",
+
+    "traj.disc.title": "Discriminate",
+    "traj.disc.subtitle": "Which capability separates two paths",
+    "traj.disc.pickA": "Trajectory A",
+    "traj.disc.pickB": "Trajectory B",
+    "traj.disc.action": "Compare",
+    "traj.disc.same": "Pick two different trajectories to compare.",
+    "traj.disc.distinguishing": "Distinguishing capabilities",
+    "traj.disc.none": "No open capability separates them right now.",
+    "traj.disc.onlyInA": "only in A",
+    "traj.disc.onlyInB": "only in B",
+    "traj.disc.suggested": "Suggested experiment target",
+
+    "err.trajectories": "Could not load trajectories.",
+    "err.trajCreate": "Could not create the trajectory.",
+    "err.fit": "Could not load the fit.",
+    "err.requirement": "Could not add the requirement.",
+    "err.discriminate": "Could not compare the trajectories.",
+
+    // Fit chip labels
+    "fit.met": "Met",
+    "fit.supported": "Supported",
+    "fit.open": "Open",
+    "fit.against": "Against",
+    "fit.discarded": "Discarded",
+
     // Compass ID control
     "user.button": "Compass ID",
     "user.title": "Your Compass ID",
@@ -218,6 +281,7 @@ const dict = {
     // Nav
     "nav.how": "Cómo funciona",
     "nav.dashboard": "Abrir dashboard",
+    "nav.trajectories": "Trayectorias",
 
     // Footer
     "footer.rights": "© 2026 COMPASS · Ninguna afirmación sin evidencia sellada",
@@ -402,6 +466,68 @@ const dict = {
     "example.hypothesis1": "Tiene fuerte capacidad de diseño de sistemas bajo baja carga social.",
     "example.hypothesis2":
       "Aprende más rápido terminando y reparando sistemas existentes que desde una hoja en blanco.",
+
+    // Trayectorias (fit vocacional)
+    "traj.eyebrow": "Fit vocacional",
+    "traj.title": "Trayectorias",
+    "traj.subtitle":
+      "A qué dedicarte, planteado como un fit entre las capacidades demostradas y lo que un camino requiere — nunca un porcentaje de destino.",
+    "traj.list.title": "Trayectorias",
+    "traj.list.subtitle": "Elegí una para ver su fit",
+    "traj.list.empty": "Todavía no hay trayectorias. Creá una para mapear un camino.",
+    "traj.create.name": "Nombre de la trayectoria",
+    "traj.create.namePlaceholder": "ej. Arquitecto de sistemas",
+    "traj.create.desc": "Descripción (opcional)",
+    "traj.create.descPlaceholder": "Qué es el camino, en una línea…",
+    "traj.create.action": "Crear trayectoria",
+    "traj.select.hint": "Seleccioná una trayectoria a la izquierda para ver su fit.",
+
+    "traj.fit.title": "Fit",
+    "traj.fit.caption":
+      "Un fit es qué capacidades requeridas tienen evidencia — no una probabilidad de destino.",
+    "traj.fit.requirements": "Capacidades requeridas",
+    "traj.fit.empty": "Todavía no hay capacidades requeridas. Agregá una abajo.",
+
+    "traj.summary.met": "Cumplido",
+    "traj.summary.supported": "Sostenido",
+    "traj.summary.open": "Abierto",
+    "traj.summary.against": "En contra",
+    "traj.summary.discarded": "Descartado",
+    "traj.summary.total": "Total",
+
+    "traj.addReq.title": "Agregar una capacidad requerida",
+    "traj.addReq.pickHypothesis": "Hipótesis",
+    "traj.addReq.pickPlaceholder": "Elegí una hipótesis…",
+    "traj.addReq.noHypotheses": "Todavía no hay hipótesis — primero agregá alguna en el dashboard.",
+    "traj.addReq.label": "Etiqueta del requisito",
+    "traj.addReq.labelPlaceholder": "Qué requiere este camino…",
+    "traj.addReq.action": "Agregar requisito",
+    "traj.addReq.duplicate": "Esa capacidad ya es un requisito de esta trayectoria.",
+
+    "traj.disc.title": "Discriminar",
+    "traj.disc.subtitle": "Qué capacidad separa dos caminos",
+    "traj.disc.pickA": "Trayectoria A",
+    "traj.disc.pickB": "Trayectoria B",
+    "traj.disc.action": "Comparar",
+    "traj.disc.same": "Elegí dos trayectorias distintas para comparar.",
+    "traj.disc.distinguishing": "Capacidades que distinguen",
+    "traj.disc.none": "Ninguna capacidad abierta las separa ahora mismo.",
+    "traj.disc.onlyInA": "solo en A",
+    "traj.disc.onlyInB": "solo en B",
+    "traj.disc.suggested": "Experimento sugerido",
+
+    "err.trajectories": "No se pudieron cargar las trayectorias.",
+    "err.trajCreate": "No se pudo crear la trayectoria.",
+    "err.fit": "No se pudo cargar el fit.",
+    "err.requirement": "No se pudo agregar el requisito.",
+    "err.discriminate": "No se pudieron comparar las trayectorias.",
+
+    // Etiquetas de fit
+    "fit.met": "Cumplido",
+    "fit.supported": "Sostenido",
+    "fit.open": "Abierto",
+    "fit.against": "En contra",
+    "fit.discarded": "Descartado",
 
     // Control de Compass ID
     "user.button": "Compass ID",

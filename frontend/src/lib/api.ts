@@ -13,6 +13,9 @@ import type {
   NarrateResponse,
   AbduceResponse,
   EvidenceType,
+  TrajectoriesResponse,
+  FitResponse,
+  DiscriminateResponse,
 } from "./types";
 import { getUserId } from "./session";
 
@@ -156,4 +159,32 @@ export const narrate = (language: "English" | "Spanish" = "English") =>
   request<NarrateResponse>(
     `/api/narrate?language=${encodeURIComponent(language)}`,
     { method: "POST" },
+  );
+
+/* ─────────────────────────── Trajectories ─────────────────────────── */
+
+export const getTrajectories = () =>
+  request<TrajectoriesResponse>("/api/trajectories");
+
+export const postTrajectory = (body: { name: string; description?: string }) =>
+  request<{ trajectory_id: number | string }>("/api/trajectories", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+
+export const postRequirement = (
+  trajectoryId: number | string,
+  body: { hypothesis_id: number | string; label: string },
+) =>
+  request<{ requirement_id: number | string }>(
+    `/api/trajectories/${trajectoryId}/requirements`,
+    { method: "POST", body: JSON.stringify(body) },
+  );
+
+export const getFit = (trajectoryId: number | string) =>
+  request<FitResponse>(`/api/trajectories/${trajectoryId}/fit`);
+
+export const getDiscriminate = (a: number | string, b: number | string) =>
+  request<DiscriminateResponse>(
+    `/api/trajectories/discriminate?a=${encodeURIComponent(String(a))}&b=${encodeURIComponent(String(b))}`,
   );

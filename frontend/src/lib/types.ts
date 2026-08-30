@@ -168,3 +168,60 @@ export interface AbduceResponse {
   proposals: AbduceProposal[];
   state_seal: string;
 }
+
+/* ─────────────────────────── Trajectories ─────────────────────────── */
+
+// A fit is which required capabilities have evidence — NOT a probability.
+export type FitStatus = "met" | "supported" | "open" | "against" | "discarded";
+
+export interface Trajectory {
+  id: number | string;
+  name: string;
+  description?: string | null;
+}
+
+export interface TrajectoriesResponse {
+  trajectories: Trajectory[];
+}
+
+export interface FitRequirement {
+  requirement_id: number | string;
+  hypothesis_id: number | string;
+  label: string;
+  hypothesis_statement: string;
+  hypothesis_status: HypothesisStatus;
+  index: number | null;
+  fit: FitStatus;
+}
+
+export interface FitSummary {
+  met: number;
+  supported: number;
+  open: number;
+  against: number;
+  discarded: number;
+  total: number;
+}
+
+export interface FitResponse {
+  trajectory: Trajectory;
+  requirements: FitRequirement[];
+  summary: FitSummary;
+}
+
+export interface DistinguishingCapability {
+  hypothesis_id: number | string;
+  label: string;
+  only_in: "a" | "b";
+  fit: FitStatus;
+  index: number | null;
+}
+
+export interface DiscriminateResponse {
+  trajectory_a: Trajectory;
+  trajectory_b: Trajectory;
+  shared_requirements: (number | string)[];
+  distinguishing: DistinguishingCapability[];
+  suggested_experiment_target: DistinguishingCapability | null;
+  note: string;
+}

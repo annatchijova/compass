@@ -16,6 +16,8 @@ import type {
   TrajectoriesResponse,
   TrajectoryFitResponse,
   DiscriminateResponse,
+  DesignExperimentResponse,
+  ResourcesResponse,
 } from "./types";
 import { getUserId } from "./session";
 
@@ -194,3 +196,21 @@ export const postRequirement = (
     `/api/trajectories/${trajectoryId}/requirements`,
     { method: "POST", body: JSON.stringify(body) },
   );
+
+/* ── Concrete suggestions ────────────────────────────────────────────────
+   Neither call writes: they return drafts and reading material. Nothing is
+   preregistered until the person posts it to /api/experiments themselves. */
+
+export const designExperiment = (hypothesisId: number | string) =>
+  request<DesignExperimentResponse>("/api/experiments/design", {
+    method: "POST",
+    body: JSON.stringify({ hypothesis_id: Number(hypothesisId) }),
+  });
+
+// Privacy: with a searching backend this sends the capability statement to
+// Google. It is always an explicit click, never automatic.
+export const findResources = (hypothesisId: number | string) =>
+  request<ResourcesResponse>("/api/resources", {
+    method: "POST",
+    body: JSON.stringify({ hypothesis_id: Number(hypothesisId) }),
+  });

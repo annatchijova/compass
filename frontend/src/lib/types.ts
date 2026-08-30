@@ -221,3 +221,51 @@ export interface DiscriminateResponse {
   suggested_experiment_target: DistinguishingRequirement | null;
   note: string;
 }
+
+/* ── Concrete suggestions from the LLM ───────────────────────────────────
+   Both are PROPOSALS: they live outside the seal, write nothing to the
+   ledger, and move no index. The person edits and decides. */
+
+export interface ExperimentDraft {
+  design: string;
+  success_criterion: string;
+  failure_criterion: string;
+}
+
+export interface DesignExperimentResponse {
+  hypothesis_id: number | string;
+  hypothesis_statement: string;
+  draft: ExperimentDraft;
+  note?: string;
+}
+
+export type ResourceKind =
+  | "course"
+  | "community"
+  | "project"
+  | "reading"
+  | "tool"
+  | "person";
+
+export interface Resource {
+  title: string;
+  kind: ResourceKind;
+  why: string;
+  /** Empty when the model found no source. Never render a link for "". */
+  url: string;
+}
+
+export interface GroundingSource {
+  title: string;
+  uri: string;
+}
+
+export interface ResourcesResponse {
+  hypothesis_id: number | string;
+  capability: string;
+  resources: Resource[];
+  /** False = these came from the model's memory, NOT from a real search. */
+  grounded: boolean;
+  sources: GroundingSource[];
+  note?: string;
+}

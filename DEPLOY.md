@@ -100,6 +100,25 @@ gcloud run deploy compass-web \
   --project vigia-497422
 ```
 
+## Resource search (Google Search grounding)
+
+The resource finder asks Gemini with the SDK's built-in Google Search tool,
+so resources come back with the sources they were found at. It needs no
+extra API beyond `aiplatform.googleapis.com`, which the prerequisites above
+already enable, and no extra env var: any deployment where
+`COMPASS_BACKEND=gemini` works will ground.
+
+Two things to know before turning it loose:
+
+- It sends the capability's wording to Google. That is why it is an explicit
+  click in the UI and never automatic (design doc §6).
+- A backend that cannot search answers `grounded: false`, and the web app
+  says so rather than passing the model's memory off as a search. The
+  offline `demo` backend returns sample resources with no URLs at all.
+
+**Untested live.** This path is written against `google-genai` 2.x and
+covered by a stub in the suite; no real search call has been made yet.
+
 ## Deploy the ADK agent (optional, separate service)
 
 ```bash

@@ -57,6 +57,11 @@ export default function CompassDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  // Bumped on every successful mutation. Panels that hold their own data
+  // watch it, because not every write shows up in the SEALED state: a new
+  // latent hypothesis is deliberately invisible there (design doc §3.2),
+  // so nothing else would tell them to re-read.
+  const [revision, setRevision] = useState(0);
 
   const fetchAll = useCallback(async () => {
     const [s, e, c] = await Promise.all([
@@ -87,6 +92,7 @@ export default function CompassDashboard() {
   const refetch = useCallback(async () => {
     try {
       await fetchAll();
+      setRevision((r) => r + 1);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t("err.refetch"));
     }
@@ -242,7 +248,10 @@ export default function CompassDashboard() {
           />
 
           {/* Trajectories — vocational fit over the SEALED hypotheses */}
-          <TrajectoriesPanel hypotheses={s?.hypotheses ?? []} />
+          <TrajectoriesPanel
+            revision={revision}
+            onChanged={() => void refetch()}
+          />
 
           {/* Evidence ledger */}
           <Panel

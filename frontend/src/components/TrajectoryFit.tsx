@@ -2,6 +2,7 @@
 
 import { Target, Compass } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
+import { CapabilitySuggestions } from "@/components/CapabilitySuggestions";
 import { clampIndex } from "@/lib/utils";
 import type {
   FitState,
@@ -27,6 +28,10 @@ import type {
  */
 
 const FIT_ORDER: FitState[] = ["met", "supported", "open", "against", "discarded"];
+
+// Mirrors the backend's _RESOLVED set: these no longer discriminate, so
+// there is nothing left to go and test for them.
+const RESOLVED: FitState[] = ["met", "against", "discarded"];
 
 // met←corroborada, supported←activa, open←latente, against←debilitada,
 // discarded←descartada. UI chrome only — never a computed value.
@@ -86,7 +91,13 @@ function FitSummary({ summary }: { summary: TrajectoryFitResponse["summary"] }) 
   );
 }
 
-function RequirementRow({ req }: { req: TrajectoryRequirement }) {
+function RequirementRow({
+  req,
+  onChanged,
+}: {
+  req: TrajectoryRequirement;
+  onChanged: () => void;
+}) {
   const { t } = useI18n();
   return (
     <div className="card-solid rounded-2xl p-3.5">
@@ -108,11 +119,23 @@ function RequirementRow({ req }: { req: TrajectoryRequirement }) {
           {req.index == null ? "—" : `${clampIndex(req.index)}/1000`}
         </span>
       </div>
+      {!RESOLVED.includes(req.fit) && (
+        <CapabilitySuggestions
+          hypothesisId={req.hypothesis_id}
+          onPreregistered={onChanged}
+        />
+      )}
     </div>
   );
 }
 
-export function TrajectoryFit({ fit }: { fit: TrajectoryFitResponse }) {
+export function TrajectoryFit({
+  fit,
+  onChanged,
+}: {
+  fit: TrajectoryFitResponse;
+  onChanged: () => void;
+}) {
   const { t } = useI18n();
   return (
     <div className="space-y-4">
@@ -140,7 +163,11 @@ export function TrajectoryFit({ fit }: { fit: TrajectoryFitResponse }) {
         {fit.requirements.length > 0 ? (
           <div className="space-y-2">
             {fit.requirements.map((r) => (
-              <RequirementRow key={r.requirement_id} req={r} />
+              <RequirementRow
+                key={r.requirement_id}
+                req={r}
+                onChanged={onChanged}
+              />
             ))}
           </div>
         ) : (

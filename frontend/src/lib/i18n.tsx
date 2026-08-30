@@ -244,6 +244,38 @@ const dict = {
     "example.trajectory1": "Systems engineer on small, high-trust teams",
     "example.trajectory2": "Independent researcher / technical writer",
 
+    // Concrete suggestions (LLM proposes, the person decides)
+    "sugg.design": "Design an experiment",
+    "sugg.resources": "Find resources",
+    "sugg.draftTitle": "Draft experiment",
+    "sugg.draftNote":
+      "A draft, nothing more — nothing was preregistered and no index moved. Edit it and preregister it yourself.",
+    "sugg.design.label": "Design",
+    "sugg.success.label": "Success criterion",
+    "sugg.failure.label": "Failure criterion",
+    "sugg.failureNote":
+      "The failure criterion is declared before running it. An experiment that can only turn out well discriminates nothing.",
+    "sugg.preregister": "Preregister this experiment",
+    "sugg.discard": "Discard draft",
+    "sugg.resourcesTitle": "Where to run it",
+    "sugg.resourcesNote":
+      "Reading material, not evidence: nothing here entered the ledger and no index moved.",
+    "sugg.grounded": "Found by web search — every source is linked.",
+    "sugg.notGrounded":
+      "NOT searched: these come from the model's own memory, so they carry no source. Configure the Gemini backend to search for real ones.",
+    "sugg.privacy":
+      "Searching sends this capability's wording to Google. That is why it takes a click.",
+    "sugg.sources": "Sources consulted",
+    "sugg.noResources": "No resources came back for this capability.",
+    "kind.course": "course",
+    "kind.community": "community",
+    "kind.project": "project",
+    "kind.reading": "reading",
+    "kind.tool": "tool",
+    "kind.person": "person",
+    "err.design": "Could not draft the experiment.",
+    "err.resources": "Could not look for resources.",
+
     // Compass ID control
     "user.button": "Compass ID",
     "user.title": "Your Compass ID",
@@ -492,6 +524,38 @@ const dict = {
     "examples.trajectoryHint": "tocá para completar",
     "example.trajectory1": "Ingeniera de sistemas en equipos chicos y de alta confianza",
     "example.trajectory2": "Investigadora independiente / escritora técnica",
+
+    // Sugerencias concretas (el LLM propone, la persona decide)
+    "sugg.design": "Diseñar un experimento",
+    "sugg.resources": "Buscar recursos",
+    "sugg.draftTitle": "Borrador de experimento",
+    "sugg.draftNote":
+      "Es un borrador y nada más: no se preregistró nada ni se movió ningún índice. Editalo y preregistralo vos.",
+    "sugg.design.label": "Diseño",
+    "sugg.success.label": "Criterio de éxito",
+    "sugg.failure.label": "Criterio de fracaso",
+    "sugg.failureNote":
+      "El criterio de fracaso se declara antes de correrlo. Un experimento que solo puede salir bien no discrimina nada.",
+    "sugg.preregister": "Preregistrar este experimento",
+    "sugg.discard": "Descartar borrador",
+    "sugg.resourcesTitle": "Dónde ir a ejecutarlo",
+    "sugg.resourcesNote":
+      "Material de consulta, no evidencia: nada de esto entró al ledger ni movió ningún índice.",
+    "sugg.grounded": "Encontrados por búsqueda web — cada fuente está enlazada.",
+    "sugg.notGrounded":
+      "SIN buscar: salieron de la memoria del modelo, así que no traen fuente. Configurá el backend Gemini para buscar de verdad.",
+    "sugg.privacy":
+      "Buscar manda el enunciado de esta capacidad a Google. Por eso requiere un clic.",
+    "sugg.sources": "Fuentes consultadas",
+    "sugg.noResources": "No volvió ningún recurso para esta capacidad.",
+    "kind.course": "curso",
+    "kind.community": "comunidad",
+    "kind.project": "proyecto",
+    "kind.reading": "lectura",
+    "kind.tool": "herramienta",
+    "kind.person": "persona",
+    "err.design": "No se pudo redactar el experimento.",
+    "err.resources": "No se pudieron buscar recursos.",
 
     // Control de Compass ID
     "user.button": "Compass ID",

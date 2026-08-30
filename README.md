@@ -83,6 +83,44 @@ never touches the decision path:
   or the chain of custody. This is enforced by
   `tests/test_hackathon_layer.py::test_swapping_narrator_backend_never_changes_the_seal`.
 
+### What Gemini actually does here
+
+Growing the model's presence means growing what it *proposes*, never what it
+decides. Four roles, none with authority:
+
+| Role | Proposes | Person's act |
+|---|---|---|
+| **Extractor** | candidate signals from a narrative | validating one is what makes it evidence |
+| **Abductor** | rival hypotheses about a capability | keeping or discarding one |
+| **Experiment designer** | a discriminating experiment for an open capability — design, success criterion, and the **failure criterion declared before running it** | editing it and preregistering it |
+| **Resource finder** | concrete places to go *run* that experiment — a course, community, open project, reading, tool, or kind of person — found by Google Search on Vertex, each with its source | deciding whether any is worth their time |
+
+The last two answer the question a vocational test usually dodges: not "what
+are you like" but **"what do you do on Monday to find out"**.
+
+Both are proposals in the strict sense — asking for either writes nothing,
+appends nothing to the chain, and moves no index. That is not a convention,
+it is a test: `test_suggesting_moves_no_sealed_number` compares the sealed
+state, the chain length and a fresh recompute across both calls, and fails
+if any of them budges.
+
+Two honesty rules the resource finder carries, because it is the first
+feature that reads the outside world:
+
+- **Web content is data, never instruction.** It is parsed, validated
+  against a closed schema (a fixed vocabulary of resource kinds, bounded
+  lengths, the same no-percentages guard the narrator has), rendered as
+  text and links, and never executed. Non-`http(s)` URLs are stripped at
+  the boundary.
+- **A search says it searched.** Backends that cannot search return
+  `grounded: false` and the UI says so in as many words, with no URLs
+  attached. Presenting a model's memory as a search would be exactly the
+  unsupported claim this project exists to refuse. Nothing found is
+  evidence: resources live outside the seal and never enter the ledger.
+
+Searching sends the capability's wording to Google, so it is always an
+explicit click — never something the system does on its own (design doc §6).
+
 ---
 
 ## Architecture
@@ -150,7 +188,7 @@ no credential and no cloud, using a role-aware `demo` backend.
 ### 1. The core cycle (CLI, offline)
 
 ```bash
-python3 -m pytest                          # 125 tests — see "Tests" for the extras
+python3 -m pytest                          # 138 tests — see "Tests" for the extras
 PYTHONPATH=src python3 -m compass init     # then: person, evidence, hyp, link, exp,
                                            # observe, reflect, recompute, compass,
                                            # traj, verify
@@ -283,6 +321,13 @@ A known limitation is an asset. What this project does **not** yet claim:
   proves the contract against the offline backends only. Another model,
   region, or SDK version could still surface response-shape differences.
   (Same honesty the skeleton always kept about the Anthropic/Ollama backends.)
+- **The grounded search path has never run against Vertex.** `GeminiBackend
+  .search` and the citation extraction are written against `google-genai`
+  2.x and covered by a stub backend in the suite; no real Google Search call
+  has been made from this project yet. The parsing is deliberately
+  defensive — missing grounding metadata yields no sources rather than
+  invented ones — but the first live call is the one that will confirm the
+  response shape.
 - **The prompts (extractor/abductor/narrator) are v0, un-audited
   adversarially.** A model captured by a persuasive narrative can propose
   biased *candidates* — the structural mitigation is that nothing enters the
@@ -326,14 +371,12 @@ work that is simply not done yet.
 | # | Open item | Where it bites |
 |---|---|---|
 | 1 | **Demo video not recorded.** | README and `docs/SUBMISSION.md` both still say *to be filled*. |
-| 2 | **The experiment designer is built but unreachable.** `Abductor.design_experiment` (`src/compass/llm.py`) drafts a concrete design + success + failure criterion and validates the model's output, but nothing calls it — not the API, not the CLI, not the agent, not the web app. | The most useful concrete suggestion the system can make ("here is an experiment that would settle this capability") never reaches the person. |
-| 3 | **No resource / opportunity layer.** The design doc parks "opportunity radar" as out of MVP because it needs external sources. Nothing today points a person at a course, community, project or reading that would let them *run* an open capability's experiment. | The person is told what to test but left alone to figure out how. Reopening it means deciding how external content enters a system whose whole posture is that nothing enters the ledger unvalidated — see [`docs/COMPASS-DESIGN-v0.md`](docs/COMPASS-DESIGN-v0.md) §5 (hard limits) and §6 (privacy). |
-| 4 | **The demo scenario cannot exercise `discriminate`.** Both seeded hypotheses are already resolved (one corroborated, one weakened), and only an *unresolved* capability required by exactly one path can discriminate. | The trajectory comparison always lands on its honest empty case, so the cheapest-next-experiment logic is never demonstrated. Seeding a third, still-latent capability would fix it — and would also change the dashboard's "single next step". |
-| 5 | **The CLI speaks Spanish only.** The API, narrator and frontend are bilingual EN/ES. | Mixed-language experience for anyone driving the core from a terminal. |
-| 6 | **Engine weights still provisional.** `decision_record` #1 names the reopening condition: an audit against real data. | Every index is "accumulation under v1 rules", not a tuned measurement. |
-| 7 | **Narration is not semantically audited** (Red Team finding A, partial). | A certainty claim in words can still slip past the percentage guard. |
-| 8 | **Tail hash is not anchored off-machine.** | Tampering is detectable only by a verifier that already holds a prior tail. |
-| 9 | **No self-perception-vs-data confrontation yet.** | The design's confrontation step (with a deliberately careful threshold) is unimplemented. |
+| 2 | **The demo scenario cannot exercise `discriminate`.** Both seeded hypotheses are already resolved (one corroborated, one weakened), and only an *unresolved* capability required by exactly one path can discriminate. | The trajectory comparison always lands on its honest empty case, so the cheapest-next-experiment logic is never demonstrated. Seeding a third, still-latent capability would fix it — and would also change the dashboard's "single next step". |
+| 3 | **The CLI speaks Spanish only.** The API, narrator and frontend are bilingual EN/ES. | Mixed-language experience for anyone driving the core from a terminal. |
+| 4 | **Engine weights still provisional.** `decision_record` #1 names the reopening condition: an audit against real data. | Every index is "accumulation under v1 rules", not a tuned measurement. |
+| 5 | **Narration is not semantically audited** (Red Team finding A, partial). | A certainty claim in words can still slip past the percentage guard. |
+| 6 | **Tail hash is not anchored off-machine.** | Tampering is detectable only by a verifier that already holds a prior tail. |
+| 7 | **No self-perception-vs-data confrontation yet.** | The design's confrontation step (with a deliberately careful threshold) is unimplemented. |
 
 ---
 
@@ -341,18 +384,18 @@ work that is simply not done yet.
 
 ```bash
 pip install pytest '.[api,gemini,adk]'
-python3 -m pytest -q      # 125 tests, all green
+python3 -m pytest -q      # 138 tests, all green
 ```
 
 **What each extra buys you.** The suite is layered like the code: the core
 tests are stdlib-only, the rest need the extra whose surface they cover.
 
-| Installed | Result (125 collected) |
+| Installed | Result (138 collected) |
 |---|---|
-| nothing (stdlib) | 116 pass · 7 fail on import — the FastAPI-backed tests · 2 skip |
-| `.[api]` | 121 pass · 2 fail — the `GeminiBackend` fail-closed tests need `google-genai` · 2 skip |
-| `.[api,gemini]` | 123 pass · 2 skip — the ADK tests need `google-adk` |
-| `.[api,gemini,adk]` | 125 pass |
+| nothing (stdlib) | 125 pass · 7 fail + 4 error, all `ModuleNotFoundError: fastapi` · 2 skip |
+| `.[api]` | 134 pass · 2 fail — the `GeminiBackend` fail-closed tests need `google-genai` · 2 skip |
+| `.[api,gemini]` | 136 pass · 2 skip — the ADK tests need `google-adk` |
+| `.[api,gemini,adk]` | 138 pass |
 
 Failures in the first two rows are missing dependencies, not regressions; the
 core's own tests never need anything but the stdlib.

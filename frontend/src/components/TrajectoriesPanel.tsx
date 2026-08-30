@@ -8,7 +8,7 @@ import { useI18n } from "@/lib/i18n";
 import { Panel, Empty, ExampleChips } from "@/components/Panel";
 import { TrajectoryFit, FitChip } from "@/components/TrajectoryFit";
 import type {
-  StateResponse,
+  Hypothesis,
   Trajectory,
   TrajectoryFitResponse,
   DiscriminateResponse,
@@ -27,20 +27,37 @@ import type {
  * a trajectory cannot become a wish list.
  */
 export function TrajectoriesPanel({
-  hypotheses,
+  revision,
+  onChanged,
 }: {
-  hypotheses: StateResponse["state"]["hypotheses"];
+  /** Bumped by the dashboard after any write. The panel re-reads on it
+      because a new LATENT hypothesis never shows up in the sealed state
+      (design doc §3.2), so there is no other signal that one exists. */
+  revision: number;
+  /** Called when a suggestion turned into a real write (a preregistered
+      experiment), so the dashboard can refetch its sealed state. */
+  onChanged: () => void;
 }) {
   const { t } = useI18n();
   const [trajectories, setTrajectories] = useState<Trajectory[] | null>(null);
+  // A requirement must be backable by a LATENT capability — that is the whole
+  // point: you plan a path around what you have not proven yet. The sealed
+  // state deliberately hides latent hypotheses ("a hypothesis without minimum
+  // evidence does not exist publicly", design doc §3.2), so the selector is
+  // fed from /api/hypotheses, which lists every one.
+  const [allHypotheses, setAllHypotheses] = useState<Hypothesis[]>([]);
   const [selected, setSelected] = useState<string>("");
   const [fit, setFit] = useState<TrajectoryFitResponse | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
   const loadTrajectories = useCallback(async () => {
-    const res = await api.getTrajectories();
+    const [res, hyps] = await Promise.all([
+      api.getTrajectories(),
+      api.getHypotheses(),
+    ]);
     setTrajectories(res.trajectories);
+    setAllHypotheses(hyps.hypotheses);
     return res.trajectories;
   }, []);
 
@@ -85,14 +102,17 @@ export function TrajectoriesPanel({
     [loadFit],
   );
 
-  // A hypothesis added or an index resealed elsewhere changes the fit, since
-  // the fit reads hypothesis status. Re-read whenever the parent's sealed
-  // hypotheses change identity or status.
-  const fingerprint = hypotheses.map((h) => `${h.id}:${h.status}`).join(",");
+  // Any write elsewhere on the dashboard can change what this panel shows:
+  // a reseal moves a requirement's fit, and a new hypothesis becomes
+  // available to back one. Re-read on every revision.
   useEffect(() => {
+    if (revision === 0) return;          // the initial load already ran
     if (selected) void loadFit(selected);
+    void loadTrajectories().catch(() => {
+      /* the visible error already comes from the initial load */
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fingerprint]);
+  }, [revision]);
 
   const addTrajectory = useCallback(
     async (name: string) => {
@@ -161,11 +181,21 @@ export function TrajectoriesPanel({
           </label>
 
           <div className="mt-4">
-            {fit ? <TrajectoryFit fit={fit} /> : <Empty>{t("panel.traj.empty")}</Empty>}
+            {fit ? (
+              <TrajectoryFit
+                fit={fit}
+                onChanged={() => {
+                  if (selected) void loadFit(selected);
+                  onChanged();
+                }}
+              />
+            ) : (
+              <Empty>{t("panel.traj.empty")}</Empty>
+            )}
           </div>
 
           <RequirementForm
-            hypotheses={hypotheses}
+            hypotheses={allHypotheses}
             usedHypothesisIds={(fit?.requirements ?? []).map((r) =>
               String(r.hypothesis_id),
             )}
@@ -247,7 +277,7 @@ function RequirementForm({
   busy,
   onAdd,
 }: {
-  hypotheses: StateResponse["state"]["hypotheses"];
+  hypotheses: Hypothesis[];
   usedHypothesisIds: string[];
   busy: boolean;
   onAdd: (label: string, hypothesisId: string) => void;

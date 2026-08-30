@@ -32,7 +32,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from . import domain, engine, seed_demo, storage, trajectories, views
+from . import domain, engine, intake, seed_demo, storage, trajectories, views
 from .audit_chain import verify_chain, verify_content
 from .db import EVIDENCE_TYPES, open_db
 from .llm import (Abductor, Extractor, LLMOutputError, Narrator,
@@ -319,6 +319,80 @@ def complete_experiment(experiment_id: int, body: CompleteIn,
         except domain.DomainError as exc:
             raise _domain_error(exc)
     return {"experiment_id": experiment_id, "generated_evidence_id": eid}
+
+
+# --------------------------------------------------------------- intake -----
+# Intake vocacional (Big Five + RIASEC): siembra hipótesis, no dictamina. Las
+# propuestas entran como pendientes (self_report, peso mínimo); la persona
+# valida en el ledger. Ningún índice se mueve acá.
+
+@app.get("/api/intake/items")
+def intake_items(instrument: str, lang: str = "en") -> dict:
+    try:
+        return {"instrument": instrument, "lang": lang,
+                "items": intake.items(instrument, lang)}
+    except intake.IntakeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+class AssessmentIn(BaseModel):
+    instrument: str = Field(..., description="big_five | riasec")
+
+
+@app.post("/api/intake/assessments")
+def start_assessment(body: AssessmentIn, uid: str = Depends(get_uid)) -> dict:
+    with _db(uid, write=True) as conn:
+        try:
+            aid = intake.start_assessment(conn, body.instrument)
+        except intake.IntakeError as exc:
+            raise _domain_error(exc)
+    return {"assessment_id": aid}
+
+
+class ResponseItem(BaseModel):
+    item_code: str
+    value: int
+
+
+class ResponsesIn(BaseModel):
+    responses: list[ResponseItem]
+
+
+@app.post("/api/intake/assessments/{assessment_id}/responses")
+def submit_responses(assessment_id: int, body: ResponsesIn,
+                     uid: str = Depends(get_uid)) -> dict:
+    with _db(uid, write=True) as conn:
+        try:
+            for r in body.responses:
+                intake.submit_response(conn, assessment_id, r.item_code, r.value)
+        except intake.IntakeError as exc:
+            raise _domain_error(exc)
+    return {"submitted": len(body.responses)}
+
+
+@app.get("/api/intake/assessments/{assessment_id}/proposals")
+def intake_proposals(assessment_id: int, uid: str = Depends(get_uid)) -> dict:
+    with _db(uid) as conn:
+        try:
+            return intake.proposed_hypotheses(conn, assessment_id)
+        except intake.IntakeError as exc:
+            raise HTTPException(status_code=404, detail=str(exc))
+
+
+class RegisterIn(BaseModel):
+    dimension: str
+
+
+@app.post("/api/intake/assessments/{assessment_id}/register")
+def register_proposal(assessment_id: int, body: RegisterIn,
+                      uid: str = Depends(get_uid)) -> dict:
+    """La persona acepta una propuesta: crea la hipótesis-candidata + evidencia
+    self_report PENDIENTE. Validarla queda como acto de la persona en el ledger."""
+    with _db(uid, write=True) as conn:
+        try:
+            return intake.register_proposal(conn, assessment_id, body.dimension)
+        except intake.IntakeError as exc:
+            raise _domain_error(exc)
 
 
 # ---------------------------------------------------------- trayectorias ----

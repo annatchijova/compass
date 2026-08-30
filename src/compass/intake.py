@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import sqlite3
 
+from . import domain
 from .audit_chain import append
 from .db import atomic, utc_now_iso
 
@@ -234,3 +235,39 @@ def proposed_hypotheses(conn: sqlite3.Connection, assessment_id: int) -> dict:
             "note": "Propuestas para testear, no un veredicto. Registrar una "
             "la agrega como hipótesis con evidencia self_report (peso mínimo); "
             "un experimento discriminante es lo que la confirma o la debilita."}
+
+
+def register_proposal(conn: sqlite3.Connection, assessment_id: int,
+                      dimension: str) -> dict:
+    """La persona ACEPTA una propuesta: crea la hipótesis-candidata y una
+    evidencia self_report PENDIENTE (peso mínimo) vinculada supports. Consistente
+    con el extractor: la propuesta entra como pendiente y la persona la valida
+    en el ledger; nada se sella como veredicto. Todo-o-nada. La procedencia
+    (intake) queda en el source de la evidencia."""
+    proposal = None
+    for p in proposed_hypotheses(conn, assessment_id)["proposals"]:
+        if p["dimension"] == dimension:
+            proposal = p
+            break
+    if proposal is None:
+        raise IntakeError(
+            f"la dimensión {dimension!r} no es una propuesta alta de este "
+            "assessment (solo se registran dimensiones altas)")
+    instrument = score(conn, assessment_id)["instrument"]
+    with atomic(conn):
+        hid = domain.hypothesis_add(conn, statement=proposal["statement"],
+                                    origin="person")
+        eid = domain.evidence_add(
+            conn, evidence_type="self_report",
+            source=f"intake:{instrument}",
+            content={"assessment_id": assessment_id, "dimension": dimension,
+                     "raw": proposal["raw"], "max": proposal["max"],
+                     "intake_version": INTAKE_VERSION},
+            validated=False,  # pendiente: la persona valida en el ledger
+        )
+        domain.evidence_link(conn, hypothesis_id=hid, evidence_id=eid,
+                             direction="supports")
+        append(conn, op="intake_proposal_registered",
+               payload={"assessment_id": assessment_id, "dimension": dimension,
+                        "hypothesis_id": hid, "evidence_id": eid})
+    return {"hypothesis_id": hid, "evidence_id": eid, "validated": False}

@@ -113,6 +113,34 @@ def test_response_validation(db):
         intake.start_assessment(db, "mbti")               # invalid instrument
 
 
+def test_register_proposal_creates_pending_candidate(db):
+    aid = intake.start_assessment(db, "riasec")
+    for it in intake.items("riasec", "en"):
+        intake.submit_response(db, aid, it["code"],
+                               5 if it["dimension"] == "I" else 1)
+    out = intake.register_proposal(db, aid, "I")
+    h = db.execute("SELECT statement, origin FROM hypothesis WHERE id=?",
+                   (out["hypothesis_id"],)).fetchone()
+    assert "Investigativo" in h["statement"]
+    e = db.execute("SELECT evidence_type, source, validated FROM evidence WHERE id=?",
+                   (out["evidence_id"],)).fetchone()
+    # self_report (min weight), PENDING, provenance recorded in source
+    assert e["evidence_type"] == "self_report" and e["validated"] == 0
+    assert e["source"] == "intake:riasec"
+    link = db.execute("SELECT direction FROM hypothesis_evidence "
+                      "WHERE hypothesis_id=? AND evidence_id=?",
+                      (out["hypothesis_id"], out["evidence_id"])).fetchone()
+    assert link["direction"] == "supports"
+
+
+def test_register_rejects_a_low_dimension(db):
+    aid = intake.start_assessment(db, "riasec")
+    for it in intake.items("riasec", "en"):
+        intake.submit_response(db, aid, it["code"], 1)  # all low -> no proposals
+    with pytest.raises(intake.IntakeError):
+        intake.register_proposal(db, aid, "I")
+
+
 def test_proposing_persists_nothing(db):
     """Intake proposes; it must not write hypotheses/evidence or move an index."""
     aid = intake.start_assessment(db, "riasec")
@@ -123,3 +151,30 @@ def test_proposing_persists_nothing(db):
     intake.proposed_hypotheses(db, aid)
     assert db.execute("SELECT COUNT(*) c FROM hypothesis").fetchone()["c"] == before_hyp
     assert db.execute("SELECT COUNT(*) c FROM evidence").fetchone()["c"] == before_ev
+
+
+def test_api_intake_cycle(tmp_path, monkeypatch):
+    monkeypatch.setenv("COMPASS_DATA_DIR", str(tmp_path / "idata"))
+    monkeypatch.setenv("COMPASS_BACKEND", "demo")
+    monkeypatch.delenv("COMPASS_GCS_BUCKET", raising=False)
+    import importlib
+
+    from compass import storage as storage_module
+    importlib.reload(storage_module)
+    from compass import api as api_module
+    importlib.reload(api_module)
+    from fastapi.testclient import TestClient
+
+    with TestClient(api_module.app) as c:
+        items = c.get("/api/intake/items", params={"instrument": "riasec"}).json()["items"]
+        assert len(items) == len(intake.RIASEC_ITEMS)
+        aid = c.post("/api/intake/assessments", json={"instrument": "riasec"}
+                     ).json()["assessment_id"]
+        resp = [{"item_code": it["code"],
+                 "value": 5 if it["dimension"] == "I" else 1} for it in items]
+        c.post(f"/api/intake/assessments/{aid}/responses", json={"responses": resp})
+        props = c.get(f"/api/intake/assessments/{aid}/proposals").json()["proposals"]
+        assert any(p["dimension"] == "I" for p in props)
+        reg = c.post(f"/api/intake/assessments/{aid}/register",
+                     json={"dimension": "I"}).json()
+        assert reg["hypothesis_id"] and reg["validated"] is False

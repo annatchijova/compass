@@ -7,6 +7,7 @@ import { ApiError } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { Panel, Empty, ExampleChips } from "@/components/Panel";
 import { TrajectoryFit, FitChip } from "@/components/TrajectoryFit";
+import { OccupationPicker } from "@/components/OccupationPicker";
 import type {
   Hypothesis,
   Trajectory,
@@ -151,6 +152,17 @@ export function TrajectoriesPanel({
     [selected, loadFit, t],
   );
 
+  // Adopting an O*NET occupation builds a new trajectory; reuse the existing
+  // refetch/select flow so its fit shows immediately (all requirements open).
+  const onOccupationAdopted = useCallback(
+    async (trajectoryId: string) => {
+      await loadTrajectories();
+      onSelect(trajectoryId);
+      onChanged();
+    },
+    [loadTrajectories, onSelect, onChanged],
+  );
+
   return (
     <Panel
       title={t("panel.traj.title")}
@@ -210,6 +222,8 @@ export function TrajectoriesPanel({
       )}
 
       <AddTrajectoryForm busy={busy === "add"} onAdd={addTrajectory} />
+
+      <OccupationPicker onAdopted={onOccupationAdopted} />
 
       {err && (
         <p className="mt-2 flex items-center gap-1.5 text-[12px] text-status-debilitada">

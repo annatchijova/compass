@@ -300,3 +300,41 @@ export interface IntakeProposalsResponse {
   proposals: IntakeProposal[];
   note: string;
 }
+
+/* ─────────────────────────── O*NET occupations ───────────────────────────
+   Adopting an occupation seeds candidate required capabilities to test
+   against the person's evidence — never a verdict about whether they fit.
+   The `attribution` string is a CC BY 4.0 requirement and must be shown. */
+
+export interface OnetOccupationSummary {
+  code: string;
+  title: string;
+  riasec: string;
+  requirement_count: number;
+}
+
+export interface OnetOccupationsResponse {
+  occupations: OnetOccupationSummary[];
+  attribution: string;
+}
+
+export interface OnetOccupationDetail {
+  code: string;
+  title: string;
+  riasec: string;
+  requirements: string[];
+  attribution: string;
+}
+
+export interface OnetAdoptRequirement {
+  requirement_id: number | string;
+  hypothesis_id: number | string;
+  label: string;
+}
+
+export interface OnetAdoptResponse {
+  trajectory_id: number | string;
+  title: string;
+  onet_code: string;
+  requirements: OnetAdoptRequirement[];
+}

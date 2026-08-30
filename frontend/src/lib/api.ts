@@ -21,6 +21,9 @@ import type {
   Instrument,
   IntakeItemsResponse,
   IntakeProposalsResponse,
+  OnetOccupationsResponse,
+  OnetOccupationDetail,
+  OnetAdoptResponse,
 } from "./types";
 import { getUserId } from "./session";
 
@@ -283,4 +286,24 @@ export const registerIntakeProposal = (
   }>(`/api/intake/assessments/${assessmentId}/register`, {
     method: "POST",
     body: JSON.stringify({ dimension }),
+  });
+
+/* ─────────────────────────── O*NET occupations ───────────────────────────
+   Adopting an occupation builds a trajectory whose required capabilities come
+   from O*NET data. The attribution string (CC BY 4.0) must always be shown. */
+
+export const getOccupations = (lang: "en" | "es") =>
+  request<OnetOccupationsResponse>(
+    `/api/onet/occupations?lang=${encodeURIComponent(lang)}`,
+  );
+
+export const getOccupation = (code: string, lang: "en" | "es") =>
+  request<OnetOccupationDetail>(
+    `/api/onet/occupations/${encodeURIComponent(code)}?lang=${encodeURIComponent(lang)}`,
+  );
+
+export const adoptOccupation = (code: string, lang: "en" | "es") =>
+  request<OnetAdoptResponse>("/api/onet/adopt", {
+    method: "POST",
+    body: JSON.stringify({ code, lang }),
   });

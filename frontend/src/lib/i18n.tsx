@@ -261,6 +261,24 @@ const dict = {
     "likert.bigFive.high": "Strongly agree",
     "likert.riasec.low": "Strongly dislike",
     "likert.riasec.high": "Strongly like",
+
+    // O*NET — start a trajectory from a real occupation
+    "onet.start": "Start from an occupation",
+    "onet.caption":
+      "Adopting an occupation seeds candidate capabilities to test against your evidence — not a verdict about whether you fit.",
+    "onet.pick": "Choose an occupation",
+    "onet.pickPlaceholder": "Select an occupation…",
+    "onet.requirements": "Required capabilities",
+    "onet.reqCount": "{n} required capabilities",
+    "onet.adopt": "Adopt this path",
+    "onet.adopting": "Adopting…",
+    "onet.loading": "Loading occupations…",
+    "onet.empty": "No occupations available.",
+    "onet.riasecLabel": "RIASEC code",
+    "err.onet": "Could not load occupations.",
+    "err.onetDetail": "Could not load that occupation.",
+    "err.onetAdopt": "Could not adopt that occupation.",
+
     "traj.disc.title": "Which path does the next experiment separate?",
     "traj.disc.pickTwo": "Pick two different trajectories to compare.",
     "traj.disc.run": "Find the discriminating capability",
@@ -572,6 +590,24 @@ const dict = {
     "likert.bigFive.high": "Muy de acuerdo",
     "likert.riasec.low": "Me disgusta mucho",
     "likert.riasec.high": "Me gusta mucho",
+
+    // O*NET — arrancar una trayectoria desde una ocupación real
+    "onet.start": "Arrancar desde una ocupación",
+    "onet.caption":
+      "Adoptar una ocupación siembra capacidades candidatas para probar contra tu evidencia — no un veredicto sobre si encajás.",
+    "onet.pick": "Elegí una ocupación",
+    "onet.pickPlaceholder": "Seleccioná una ocupación…",
+    "onet.requirements": "Capacidades requeridas",
+    "onet.reqCount": "{n} capacidades requeridas",
+    "onet.adopt": "Adoptar este camino",
+    "onet.adopting": "Adoptando…",
+    "onet.loading": "Cargando ocupaciones…",
+    "onet.empty": "No hay ocupaciones disponibles.",
+    "onet.riasecLabel": "Código RIASEC",
+    "err.onet": "No se pudieron cargar las ocupaciones.",
+    "err.onetDetail": "No se pudo cargar esa ocupación.",
+    "err.onetAdopt": "No se pudo adoptar esa ocupación.",
+
     "traj.disc.title": "¿Qué camino separa el próximo experimento?",
     "traj.disc.pickTwo": "Elegí dos trayectorias distintas para comparar.",
     "traj.disc.run": "Buscar la capacidad que discrimina",

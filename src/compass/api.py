@@ -32,7 +32,8 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from . import domain, engine, intake, seed_demo, storage, trajectories, views
+from . import (domain, engine, intake, onet, seed_demo, storage, trajectories,
+               views)
 from .audit_chain import verify_chain, verify_content
 from .db import EVIDENCE_TYPES, open_db
 from .llm import (Abductor, Extractor, LLMOutputError, Narrator,
@@ -399,6 +400,38 @@ def register_proposal(assessment_id: int, body: RegisterIn,
 # Navegación vocacional (design doc §5): a qué dedicarse como FIT entre
 # capacidades demostradas y lo que un camino requiere — sin porcentaje de
 # destino. El fit solo LEE hipótesis ya selladas; no mueve ningún índice.
+
+@app.get("/api/onet/occupations")
+def onet_occupations(lang: str = "en") -> dict:
+    """Ocupaciones O*NET (dato basado en evidencia, CC BY 4.0) para armar
+    trayectorias con capacidades-requisito reales."""
+    return {"occupations": onet.list_occupations(lang),
+            "attribution": onet.ONET_ATTRIBUTION}
+
+
+@app.get("/api/onet/occupations/{code}")
+def onet_occupation(code: str, lang: str = "en") -> dict:
+    try:
+        return onet.occupation(code, lang)
+    except onet.OccupationError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+class AdoptIn(BaseModel):
+    code: str
+    lang: str = "es"
+
+
+@app.post("/api/onet/adopt")
+def adopt_occupation(body: AdoptIn, uid: str = Depends(get_uid)) -> dict:
+    """Adopta una ocupación: crea su trayectoria con hipótesis-candidatas por
+    capacidad-requisito. No valida nada; mide el fit contra tu evidencia."""
+    with _db(uid, write=True) as conn:
+        try:
+            return onet.adopt_occupation(conn, body.code, body.lang)
+        except onet.OccupationError as exc:
+            raise _domain_error(exc)
+
 
 @app.get("/api/trajectories")
 def list_trajectories(uid: str = Depends(get_uid)) -> dict:

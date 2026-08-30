@@ -73,6 +73,34 @@ const dict = {
     "next.eyebrow": "The single next step",
     "next.caption": "Deterministic recommendation — computed by the engine, not the narrator.",
 
+    // Calm mode (single-focus, progressive disclosure) — the default view.
+    "calm.view.calm": "Calm",
+    "calm.view.full": "Full",
+    "calm.view.aria": "View mode",
+    "calm.reassure": "You can stop anytime — nothing is lost.",
+    "calm.explore": "Explore more",
+    "calm.next.eyebrow": "Your next step",
+    // Per-next-step action buttons
+    "calm.action.validar_evidencia": "Review the pending evidence",
+    "calm.action.disenar_experimento": "Design an experiment",
+    "calm.hide": "Hide",
+    // completar / ejecutar — calm guidance (no action needed)
+    "calm.guide.title": "Nothing to click here — just this",
+    // design draft
+    "calm.design.design": "What to do",
+    "calm.design.success": "It works if",
+    "calm.design.failure": "It fails if",
+    // on-ramp (abstain)
+    "calm.onramp.intro": "Let's start gently. Answer one question in your own words.",
+    "calm.onramp.placeholder": "Write a few sentences, however you like…",
+    "calm.onramp.skip": "Skip · show another",
+    "calm.onramp.submit": "Save my answer",
+    "calm.onramp.saved":
+      "Saved. These are kept as pending signals for you to validate — nothing counts until you do.",
+    "calm.onramp.none": "No questions available right now.",
+    "calm.empty.pending": "No pending evidence right now.",
+    "err.prompts": "Could not load a question.",
+
     // Panels
     "panel.hypotheses.title": "Rival hypotheses",
     "panel.hypotheses.subtitle": "Held alive until a discriminating experiment separates them",
@@ -429,6 +457,34 @@ const dict = {
     // Next step
     "next.eyebrow": "El único paso siguiente",
     "next.caption": "Recomendación determinista — calculada por el motor, no por el narrador.",
+
+    // Modo calmo (un solo foco, revelado progresivo) — la vista por defecto.
+    "calm.view.calm": "Calmo",
+    "calm.view.full": "Completo",
+    "calm.view.aria": "Modo de vista",
+    "calm.reassure": "Podés parar cuando quieras — no se pierde nada.",
+    "calm.explore": "Explorar más",
+    "calm.next.eyebrow": "Tu paso siguiente",
+    // Botones de acción por tipo de paso
+    "calm.action.validar_evidencia": "Revisar la evidencia pendiente",
+    "calm.action.disenar_experimento": "Diseñar un experimento",
+    "calm.hide": "Ocultar",
+    // completar / ejecutar — guía calma (sin acción necesaria)
+    "calm.guide.title": "Acá no hay nada que tocar — solo esto",
+    // borrador de diseño
+    "calm.design.design": "Qué hacer",
+    "calm.design.success": "Funciona si",
+    "calm.design.failure": "Falla si",
+    // on-ramp (abstain)
+    "calm.onramp.intro": "Arranquemos de a poco. Respondé una pregunta con tus propias palabras.",
+    "calm.onramp.placeholder": "Escribí unas líneas, como quieras…",
+    "calm.onramp.skip": "Saltar · mostrar otra",
+    "calm.onramp.submit": "Guardar mi respuesta",
+    "calm.onramp.saved":
+      "Guardado. Quedan como señales pendientes para que las valides — nada cuenta hasta que lo hagas.",
+    "calm.onramp.none": "No hay preguntas disponibles ahora mismo.",
+    "calm.empty.pending": "No hay evidencia pendiente ahora mismo.",
+    "err.prompts": "No se pudo cargar una pregunta.",
 
     // Panels
     "panel.hypotheses.title": "Hipótesis rivales",

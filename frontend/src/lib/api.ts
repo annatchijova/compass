@@ -26,6 +26,7 @@ import type {
   OnetAdoptResponse,
   ProposeTrajectoriesResponse,
   ConfrontationsResponse,
+  PromptsResponse,
 } from "./types";
 import { getUserId } from "./session";
 
@@ -319,3 +320,13 @@ export const proposeTrajectories = () =>
   request<ProposeTrajectoriesResponse>("/api/trajectories/propose", {
     method: "POST",
   });
+
+/* ─────────────────────────── Narrative prompts (on-ramp) ───────────────────────────
+   Gentle narrative questions for Calm mode's on-ramp. Read-only; the person
+   answers one at a time and the answer goes through the ordinary /api/extract
+   flow (candidates land as PENDING evidence to validate). */
+
+export const getPrompts = (lang: "en" | "es", tier?: string) =>
+  request<PromptsResponse>(
+    `/api/prompts?lang=${encodeURIComponent(lang)}${tier ? `&tier=${encodeURIComponent(tier)}` : ""}`,
+  );

@@ -339,6 +339,22 @@ export interface OnetAdoptResponse {
   requirements: OnetAdoptRequirement[];
 }
 
+/* ─────────────────────────── Narrative prompts (on-ramp) ───────────────────────────
+   Gentle narrative questions used by Calm mode when there is nothing to
+   compute yet. One question at a time — never a list of 18. */
+
+export type PromptTier = "easy" | "medium" | "hard" | string;
+
+export interface Prompt {
+  code: string;
+  tier: PromptTier;
+  text: string;
+}
+
+export interface PromptsResponse {
+  prompts: Prompt[];
+}
+
 export interface ProposedRequirement {
   hypothesis_id: number;
   label: string;

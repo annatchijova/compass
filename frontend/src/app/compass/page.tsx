@@ -43,6 +43,9 @@ import { Panel, Empty, ExampleChips } from "@/components/Panel";
 import { TrajectoriesPanel } from "@/components/TrajectoriesPanel";
 import { IntakePanel } from "@/components/IntakePanel";
 import { ConfrontationPanel } from "@/components/ConfrontationPanel";
+import { CalmDashboard } from "@/components/CalmDashboard";
+import { ViewToggle } from "@/components/ViewToggle";
+import { getViewMode, setViewMode, type ViewMode } from "@/lib/viewMode";
 
 const NEXT_STEP_ICON: Record<NextStepKind, typeof FlaskConical> = {
   completar_experimento: ClipboardCheck,
@@ -67,6 +70,16 @@ export default function CompassDashboard() {
   // latent hypothesis is deliberately invisible there (design doc §3.2),
   // so nothing else would tell them to re-read.
   const [revision, setRevision] = useState(0);
+  // View mode: Calm is the DEFAULT (accessible single-focus view). Start with
+  // "calm" for SSR/first paint, then read the persisted choice in the browser.
+  const [viewMode, setView] = useState<ViewMode>("calm");
+  useEffect(() => {
+    setView(getViewMode());
+  }, []);
+  const changeView = useCallback((m: ViewMode) => {
+    setView(m);
+    setViewMode(m);
+  }, []);
 
   const fetchAll = useCallback(async () => {
     const [s, e, c, cf] = await Promise.all([
@@ -152,6 +165,32 @@ export default function CompassDashboard() {
   const s = state?.state;
   const visibleEvidence = (evidence ?? []).filter((e) => e.deleted !== 1);
   const unlinked = state?.coverage?.validated_unlinked ?? 0;
+  // Which evidence row (if any) is mid-validation, for the calm mini-list.
+  const validatingId: number | string | null =
+    busy && busy.startsWith("validate-") ? busy.slice("validate-".length) : null;
+
+  // ── Calm mode: the DEFAULT, single-focus view ──
+  if (viewMode === "calm") {
+    return (
+      <>
+        <CalmDashboard
+          state={state}
+          chain={chain}
+          evidence={evidence}
+          onUserChange={onUserChange}
+          onValidate={(id) => void onValidate(id)}
+          validatingId={validatingId}
+          onExploreMore={() => changeView("full")}
+          onChanged={() => void refetch()}
+        />
+        {/* The Calm↔Full toggle lives in Calm's own header via a fixed corner
+            control so the mode is always switchable without a counts strip. */}
+        <div className="fixed right-4 top-[76px] z-30">
+          <ViewToggle mode={viewMode} onChange={changeView} />
+        </div>
+      </>
+    );
+  }
 
   return (
     <section className="mx-auto max-w-7xl px-4 pb-10 pt-6">
@@ -195,16 +234,19 @@ export default function CompassDashboard() {
           </div>
         </div>
 
-        <button
-          onClick={() => void onRecompute()}
-          disabled={busy === "recompute"}
-          className="btn-primary shadow-soft inline-flex shrink-0 items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-bold"
-        >
-          <RefreshCw
-            className={`h-4 w-4 ${busy === "recompute" ? "animate-spin" : ""}`}
-          />
-          {t("dash.recompute")}
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <ViewToggle mode={viewMode} onChange={changeView} />
+          <button
+            onClick={() => void onRecompute()}
+            disabled={busy === "recompute"}
+            className="btn-primary shadow-soft inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-bold"
+          >
+            <RefreshCw
+              className={`h-4 w-4 ${busy === "recompute" ? "animate-spin" : ""}`}
+            />
+            {t("dash.recompute")}
+          </button>
+        </div>
       </div>
 
       {error && state && (

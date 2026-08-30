@@ -287,6 +287,23 @@ const dict = {
     "traj.proposeRequires": "Requires",
     "err.propose": "Could not propose paths.",
 
+    // Self-perception vs. data (design doc §5). Fixed template, never a model.
+    "conf.title": "Your account vs. the record",
+    "conf.subtitle": "A discrepancy, not a verdict about who you are",
+    "conf.none":
+      "No discrepancy right now: where the record is rich enough to say anything, it agrees with your own account.",
+    "conf.record_exceeds_self":
+      "Your own account pushes against this; the record does not. You recorded {selfContra} note(s) against it, and {recordPro} observed or measured result(s) for it.",
+    "conf.self_exceeds_record":
+      "You record this as true; the record pushes back. You recorded {selfPro} note(s) for it, and {recordContra} observed or measured result(s) against it.",
+    "conf.notAVerdict":
+      "This is a discrepancy between two records, not a statement about who you are. Both sides are yours; deciding what it means is too.",
+    "conf.evidenceTypes": "{n} distinct kinds of evidence",
+    "conf.heldBack": "{n} more discrepancy(ies) meet the policy — shown one at a time.",
+    "conf.policy":
+      "PROVISIONAL policy {version}: fires at index ≥ {threshold}/1000 with ≥ {types} distinct evidence types. The numbers are not measured yet.",
+    "err.confrontations": "Could not read the discrepancy check.",
+
     // Compass ID control
     "user.button": "Compass ID",
     "user.title": "Your Compass ID",
@@ -578,6 +595,23 @@ const dict = {
     "traj.proposeEmpty": "No volvió ningún camino.",
     "traj.proposeRequires": "Requiere",
     "err.propose": "No se pudieron proponer caminos.",
+
+    // Autopercepción vs. datos (design doc §5). Plantilla fija, nunca un modelo.
+    "conf.title": "Tu versión vs. el registro",
+    "conf.subtitle": "Una discrepancia, no un veredicto sobre quién sos",
+    "conf.none":
+      "Sin discrepancias ahora: donde el registro alcanza para decir algo, coincide con tu propia versión.",
+    "conf.record_exceeds_self":
+      "Tu propia versión empuja en contra de esto; el registro no. Anotaste {selfContra} apunte(s) en contra, y hay {recordPro} resultado(s) observado(s) o medido(s) a favor.",
+    "conf.self_exceeds_record":
+      "Vos lo registrás como cierto; el registro empuja en contra. Anotaste {selfPro} apunte(s) a favor, y hay {recordContra} resultado(s) observado(s) o medido(s) en contra.",
+    "conf.notAVerdict":
+      "Esto es una discrepancia entre dos registros, no una afirmación sobre quién sos. Los dos lados son tuyos; decidir qué significa, también.",
+    "conf.evidenceTypes": "{n} tipos distintos de evidencia",
+    "conf.heldBack": "Hay {n} discrepancia(s) más que cumplen la política — se muestra de a una.",
+    "conf.policy":
+      "Política PROVISORIA {version}: dispara con índice ≥ {threshold}/1000 y ≥ {types} tipos distintos de evidencia. Los números todavía no están medidos.",
+    "err.confrontations": "No se pudo leer el chequeo de discrepancias.",
 
     // Control de Compass ID
     "user.button": "Compass ID",

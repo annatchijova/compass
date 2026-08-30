@@ -32,7 +32,8 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from . import domain, engine, seed_demo, storage, trajectories, views
+from . import (confrontation, domain, engine, seed_demo, storage,
+               trajectories, views)
 from .audit_chain import verify_chain, verify_content
 from .db import EVIDENCE_TYPES, open_db
 from .llm import (Abductor, Extractor, LLMOutputError, Narrator,
@@ -384,6 +385,24 @@ def discriminate(a: int, b: int, uid: str = Depends(get_uid)) -> dict:
             return trajectories.discriminating_requirements(conn, a, b)
         except trajectories.TrajectoryError as exc:
             raise HTTPException(status_code=404, detail=str(exc))
+
+
+@app.get("/api/confrontations")
+def get_confrontations(uid: str = Depends(get_uid)) -> dict:
+    """Confrontación autopercepción vs. datos (design doc §5).
+
+    Devuelve DATOS —cuentas de cada lado— y la política con la que se
+    evaluaron, nunca prosa: la frase la arma una plantilla fija en la
+    interfaz. Ningún modelo decide si hay discrepancia ni la redacta,
+    porque bajo presión narrativa podría convertirla en un veredicto sobre
+    quién es la persona, que es exactamente lo que §5 prohíbe.
+
+    Proyección de solo lectura: no escribe, no anexa a la cadena y no mueve
+    ningún índice. La política es PROVISORIA (§9); viene en la respuesta
+    para que se pueda discutir el umbral y no la conclusión.
+    """
+    with _db(uid) as conn:
+        return confrontation.confrontations(conn)
 
 
 @app.post("/api/recompute")

@@ -201,7 +201,7 @@ no credential and no cloud, using a role-aware `demo` backend.
 ### 1. The core cycle (CLI, offline)
 
 ```bash
-python3 -m pytest                          # 146 tests — see "Tests" for the extras
+python3 -m pytest                          # 162 tests — see "Tests" for the extras
 PYTHONPATH=src python3 -m compass init     # then: person, evidence, hyp, link, exp,
                                            # observe, reflect, recompute, compass,
                                            # traj, verify
@@ -319,6 +319,17 @@ COMPASS_MODEL=gemini-2.5-flash,COMPASS_GCS_BUCKET=compass-user-data-vigia-497422
   base — exactly what a first page load does, three requests in parallel —
   cannot observe a half-created schema. Locked in by
   `tests/test_db.py::test_schema_bootstrap_is_atomic_under_concurrent_openers`.
+- **The confrontation is computed, never narrated** (design doc §5). "Your
+  account says X; the record shows Y" is the concept's most powerful moment
+  and its most dangerous, so no model touches it: the engine splits linked,
+  validated evidence into what the person *asserts* (`self_report`,
+  `narrative_extracted`) and what was *observed* (`behavioral`,
+  `experiment_result`, `outcome_external`), fires only when both accounts
+  point in opposite directions under §5's minimum conditions, and returns
+  counts. The sentence comes from a fixed template. A model under narrative
+  pressure could turn a discrepancy into a verdict about who someone is,
+  which is exactly what §5 forbids. Silence on one side is a gap, not a
+  contradiction, and never fires.
 - **Determinism is proven, not asserted:** the same input produces the same
   seal bit-for-bit across fresh processes with a different `PYTHONHASHSEED`.
 
@@ -389,7 +400,7 @@ work that is simply not done yet.
 | 4 | **Engine weights still provisional.** `decision_record` #1 names the reopening condition: an audit against real data. | Every index is "accumulation under v1 rules", not a tuned measurement. |
 | 5 | **Narration is not semantically audited** (Red Team finding A, partial). | A certainty claim in words can still slip past the percentage guard. |
 | 6 | **Tail hash is not anchored off-machine.** | Tampering is detectable only by a verifier that already holds a prior tail. |
-| 7 | **No self-perception-vs-data confrontation yet.** | The design's confrontation step (with a deliberately careful threshold) is unimplemented. |
+| 7 | **The confrontation policy is PROVISIONAL** (`confrontation-v0-provisional`). The step itself now ships; its threshold, frequency and tone are v0 values put there to unblock it, not measured — `decision_record` records the reopening condition. | Every discrepancy shown rests on numbers nobody has justified yet. The panel says so, and the API returns the policy alongside the result, so the rule can be argued with instead of the conclusion. |
 
 ---
 
@@ -397,18 +408,18 @@ work that is simply not done yet.
 
 ```bash
 pip install pytest '.[api,gemini,adk]'
-python3 -m pytest -q      # 146 tests, all green
+python3 -m pytest -q      # 162 tests, all green
 ```
 
 **What each extra buys you.** The suite is layered like the code: the core
 tests are stdlib-only, the rest need the extra whose surface they cover.
 
-| Installed | Result (146 collected) |
+| Installed | Result (162 collected) |
 |---|---|
-| nothing (stdlib) | 130 pass · 7 fail + 7 error, all `ModuleNotFoundError: fastapi` · 2 skip |
-| `.[api]` | 142 pass · 2 fail — the `GeminiBackend` fail-closed tests need `google-genai` · 2 skip |
-| `.[api,gemini]` | 144 pass · 2 skip — the ADK tests need `google-adk` |
-| `.[api,gemini,adk]` | 146 pass |
+| nothing (stdlib) | 143 pass · 7 fail + 10 error, all `ModuleNotFoundError: fastapi` · 2 skip |
+| `.[api]` | 158 pass · 2 fail — the `GeminiBackend` fail-closed tests need `google-genai` · 2 skip |
+| `.[api,gemini]` | 160 pass · 2 skip — the ADK tests need `google-adk` |
+| `.[api,gemini,adk]` | 162 pass |
 
 Failures in the first two rows are missing dependencies, not regressions; the
 core's own tests never need anything but the stdlib.

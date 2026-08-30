@@ -199,14 +199,24 @@ def activate_config(conn: sqlite3.Connection, config: Mapping) -> str:
 
 
 def seed_default_config(conn: sqlite3.Connection) -> str:
-    """Siembra la config v1 provisoria si no existe. Idempotente."""
+    """Siembra la config v1 provisoria si no existe. Idempotente.
+
+    Deja asentada también la política PROVISORIA de confrontación: es otro
+    valor sin justificar (design doc §9) y merece el mismo decision_record
+    con condición de reapertura que los pesos.
+    """
+    from .confrontation import record_policy_decision
+
     row = conn.execute(
         "SELECT config_hash FROM engine_config WHERE engine_version = ?",
         (ENGINE_VERSION_V1,),
     ).fetchone()
     if row is not None:
+        record_policy_decision(conn)
         return row["config_hash"]
-    return activate_config(conn, DEFAULT_CONFIG_V1)
+    chash = activate_config(conn, DEFAULT_CONFIG_V1)
+    record_policy_decision(conn)
+    return chash
 
 
 def load_config(conn: sqlite3.Connection, engine_version: str = ENGINE_VERSION_V1) -> dict:

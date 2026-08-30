@@ -285,3 +285,37 @@ export interface ProposeTrajectoriesResponse {
   proposals: ProposedTrajectory[];
   note?: string;
 }
+
+/* ── Self-perception vs. data confrontation (design doc §5) ──────────────
+   The API returns COUNTS and the policy, never prose: the sentence is built
+   from a fixed template here, so no model can turn a discrepancy into a
+   verdict about who the person is. Read-only — it moves no index. */
+
+export type ConfrontationKind = "record_exceeds_self" | "self_exceeds_record";
+
+export interface Confrontation {
+  hypothesis_id: number | string;
+  hypothesis_statement: string;
+  status: HypothesisStatus;
+  index: number | null;
+  kind: ConfrontationKind;
+  self_supports: number;
+  self_contradicts: number;
+  record_supports: number;
+  record_contradicts: number;
+  distinct_types: number;
+}
+
+export interface ConfrontationPolicy {
+  policy_version: string;
+  index_threshold: number;
+  min_distinct_types: number;
+  max_surfaced: number;
+}
+
+export interface ConfrontationsResponse {
+  confrontations: Confrontation[];
+  held_back: number;
+  policy: ConfrontationPolicy;
+  note?: string;
+}

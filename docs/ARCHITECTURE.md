@@ -71,6 +71,7 @@ flowchart TD
 | Independent verifier | `tools/verify_chain.py` | — | re-implements the seal spec, imports nothing from the package |
 | Compass view | `src/compass/views.py` | rules | sealed state + one deterministic next step (ABSTAIN is valid) |
 | Trajectories | `src/compass/trajectories.py` | rules | vocational fit: capability-requirements projected over SEALED hypotheses; counts, never a destiny percentage |
+| Confrontation | `src/compass/confrontation.py` | rules | self-perception vs. data (§5): splits linked evidence into asserted vs. observed, fires on opposite directions only; returns counts, never prose — **no model participates** |
 | LLM roles | `src/compass/llm.py` | **none** | extractor / abductor / trajectory proposer / experiment designer / resource finder / narrator; every output validated at the boundary or rejected |
 | ADK agent | `src/compass/agent/agent.py` | bounded by its tools | Collaborative Partner over the abductive cycle |
 | HTTP API | `src/compass/api.py` | — | thin layer over the sealed domain, for the frontend |

@@ -19,6 +19,7 @@ import type {
   DesignExperimentResponse,
   ResourcesResponse,
   ProposeTrajectoriesResponse,
+  ConfrontationsResponse,
 } from "./types";
 import { getUserId } from "./session";
 
@@ -79,6 +80,8 @@ export const getEvidence = () => request<EvidenceResponse>("/api/evidence");
 export const getHypotheses = () => request<HypothesesResponse>("/api/hypotheses");
 export const getExperiments = () => request<ExperimentsResponse>("/api/experiments");
 export const getChain = () => request<ChainResponse>("/api/chain");
+export const getConfrontations = () =>
+  request<ConfrontationsResponse>("/api/confrontations");
 
 // ---- writes ----
 export const postEvidence = (body: {

@@ -32,7 +32,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Iterator
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 EVIDENCE_TYPES = (
     "self_report",
@@ -300,9 +300,37 @@ def _migrate_to_v2(conn: sqlite3.Connection) -> None:
     _run_script(conn, _SCHEMA_V2)
 
 
+# Esquema v3: intake vocacional (Big Five vía IPIP + RIASEC). Un assessment
+# guarda respuestas Likert 1-5; el score es SUMA ENTERA por dimensión, sin
+# normas ni percentiles (eso sería el horóscopo). Los ítems son estáticos y
+# versionados en código (intake.py), no en la base. Aditivo: no toca tablas
+# previas — los datos v2 cargan intactos.
+_SCHEMA_V3 = """
+CREATE TABLE assessment (
+    id           INTEGER PRIMARY KEY,
+    instrument   TEXT NOT NULL CHECK (instrument IN ('big_five', 'riasec')),
+    created_at   TEXT NOT NULL,
+    completed_at TEXT
+) STRICT;
+
+CREATE TABLE assessment_response (
+    assessment_id INTEGER NOT NULL REFERENCES assessment (id),
+    item_code     TEXT NOT NULL,
+    value         INTEGER NOT NULL CHECK (value BETWEEN 1 AND 5),
+    PRIMARY KEY (assessment_id, item_code)
+) STRICT;
+CREATE INDEX idx_response_assessment ON assessment_response (assessment_id);
+"""
+
+
+def _migrate_to_v3(conn: sqlite3.Connection) -> None:
+    _run_script(conn, _SCHEMA_V3)
+
+
 MIGRATIONS: dict[int, Callable[[sqlite3.Connection], None]] = {
     1: _migrate_to_v1,
     2: _migrate_to_v2,
+    3: _migrate_to_v3,
 }
 
 

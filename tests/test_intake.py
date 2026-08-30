@@ -1,0 +1,125 @@
+"""Intake vocacional (Big Five + RIASEC): the questionnaire seeds hypotheses,
+it never concludes. Integer scoring, no norms, no percentages.
+"""
+
+from __future__ import annotations
+
+import json
+
+import pytest
+
+from compass import intake
+from compass.db import SCHEMA_VERSION, connect, ensure_schema, open_db
+from compass.db import _migrate_to_v1, _migrate_to_v2
+
+
+# --------------------------------------------------- schema migration ------
+
+def test_schema_is_v3_with_assessment_tables(tmp_path):
+    conn = open_db(str(tmp_path / "i.db"))
+    tables = {r[0] for r in conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table'")}
+    assert {"assessment", "assessment_response"} <= tables
+    assert SCHEMA_VERSION >= 3
+    conn.close()
+
+
+def test_v2_data_survives_migration_to_v3(tmp_path):
+    """A v2 DB (with trajectory tables) migrates to v3 with data intact."""
+    db = str(tmp_path / "legacy2.db")
+    conn = connect(db)
+    conn.execute("PRAGMA journal_mode = WAL")
+    with conn:
+        _migrate_to_v1(conn)
+        _migrate_to_v2(conn)
+        conn.execute("UPDATE meta SET value='2' WHERE key='schema_version'")
+        conn.execute("INSERT INTO person (id, display_name, created_at) "
+                     "VALUES (1, 'V2 User', '2026-01-01T00:00:00')")
+        conn.execute("INSERT INTO trajectory (name, description, created_at) "
+                     "VALUES ('Path', '', '2026-01-01T00:00:00')")
+    ensure_schema(conn)
+    assert conn.execute("SELECT value FROM meta WHERE key='schema_version'"
+                        ).fetchone()["value"] == str(SCHEMA_VERSION)
+    assert conn.execute("SELECT display_name FROM person WHERE id=1"
+                        ).fetchone()["display_name"] == "V2 User"
+    assert conn.execute("SELECT COUNT(*) c FROM trajectory").fetchone()["c"] == 1
+    tables = {r[0] for r in conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table'")}
+    assert {"assessment", "assessment_response"} <= tables
+    conn.close()
+
+
+# ------------------------------------------------------------- items -------
+
+def test_items_are_bilingual_and_stable():
+    en = intake.items("riasec", "en")
+    es = intake.items("riasec", "es")
+    assert len(en) == len(es) == len(intake.RIASEC_ITEMS)
+    # same codes/dimensions, different text
+    assert [i["code"] for i in en] == [i["code"] for i in es]
+    assert en[0]["text"] != es[0]["text"]
+
+
+# ------------------------------------------------------------- scoring -----
+
+@pytest.fixture
+def db(tmp_path):
+    conn = open_db(str(tmp_path / "s.db"))
+    yield conn
+    conn.close()
+
+
+def test_high_investigative_proposes_that_hypothesis(db):
+    aid = intake.start_assessment(db, "riasec")
+    # Max out Investigative (I1,I2), floor the rest.
+    for it in intake.items("riasec", "en"):
+        intake.submit_response(db, aid, it["code"],
+                               5 if it["dimension"] == "I" else 1)
+    sc = intake.score(db, aid)
+    assert sc["dimensions"]["I"]["raw"] == 10   # 2 items x 5, integer
+    assert sc["dimensions"]["R"]["raw"] == 2    # 2 items x 1
+    props = intake.proposed_hypotheses(db, aid)
+    dims = {p["dimension"] for p in props["proposals"]}
+    assert "I" in dims and "R" not in dims
+    inv = next(p for p in props["proposals"] if p["dimension"] == "I")
+    assert "Investigativo" in inv["statement"]
+
+
+def test_scoring_is_integer_and_has_no_percentage(db):
+    aid = intake.start_assessment(db, "big_five")
+    for it in intake.items("big_five", "en"):
+        intake.submit_response(db, aid, it["code"], 4)
+    out = json.dumps(intake.proposed_hypotheses(db, aid))
+    assert "%" not in out and "percent" not in out.lower()
+    for d in intake.score(db, aid)["dimensions"].values():
+        assert isinstance(d["raw"], int)
+
+
+def test_reverse_scored_items(db):
+    """A reverse item at 5 contributes like a 1 (6-5)."""
+    aid = intake.start_assessment(db, "big_five")
+    intake.submit_response(db, aid, "E1", 5)  # E+, contributes 5
+    intake.submit_response(db, aid, "E2", 5)  # E- reverse, contributes 1
+    assert intake.score(db, aid)["dimensions"]["E"]["raw"] == 6
+
+
+def test_response_validation(db):
+    aid = intake.start_assessment(db, "riasec")
+    with pytest.raises(intake.IntakeError):
+        intake.submit_response(db, aid, "I1", 6)          # out of range
+    with pytest.raises(intake.IntakeError):
+        intake.submit_response(db, aid, "O1", 3)          # Openness code (big_five only) on riasec
+    with pytest.raises(intake.IntakeError):
+        intake.start_assessment(db, "mbti")               # invalid instrument
+
+
+def test_proposing_persists_nothing(db):
+    """Intake proposes; it must not write hypotheses/evidence or move an index."""
+    aid = intake.start_assessment(db, "riasec")
+    for it in intake.items("riasec", "en"):
+        intake.submit_response(db, aid, it["code"], 5)
+    before_hyp = db.execute("SELECT COUNT(*) c FROM hypothesis").fetchone()["c"]
+    before_ev = db.execute("SELECT COUNT(*) c FROM evidence").fetchone()["c"]
+    intake.proposed_hypotheses(db, aid)
+    assert db.execute("SELECT COUNT(*) c FROM hypothesis").fetchone()["c"] == before_hyp
+    assert db.execute("SELECT COUNT(*) c FROM evidence").fetchone()["c"] == before_ev

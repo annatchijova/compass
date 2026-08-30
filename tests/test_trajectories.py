@@ -20,8 +20,9 @@ from compass.db import (SCHEMA_VERSION, _migrate_to_v1, connect, ensure_schema,
 
 # --------------------------------------------------- schema migration ------
 
-def test_schema_version_is_2():
-    assert SCHEMA_VERSION == 2
+def test_trajectory_schema_landed_at_v2():
+    # Trajectory tables were introduced at schema v2 and persist forward.
+    assert SCHEMA_VERSION >= 2
 
 
 def test_open_db_creates_trajectory_tables(tmp_path):

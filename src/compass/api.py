@@ -36,8 +36,31 @@ from . import (confrontation, domain, engine, intake, onet, seed_demo, storage,
                trajectories, views)
 from .audit_chain import verify_chain, verify_content
 from .db import EVIDENCE_TYPES, open_db
-from .llm import (Abductor, Extractor, LLMOutputError, Narrator,
-                  ResourceFinder, TrajectoryProposer, backend_from_env)
+from .llm import (AVAILABLE_BACKENDS, Abductor, Extractor, LLMOutputError,
+                  Narrator, ResourceFinder, TrajectoryProposer,
+                  backend_from_env, backend_from_kind)
+
+
+def _selectable_backends() -> list[str]:
+    """Los backends que un usuario PUEDE elegir en este deploy. Por defecto: el
+    del proceso + el demo offline (para mostrar el invariante swap→mismo seal
+    sin exponer vendors sin credencial). Se amplía con COMPASS_ALLOWED_BACKENDS."""
+    default = os.environ.get("COMPASS_BACKEND", "fake")
+    allowed = os.environ.get("COMPASS_ALLOWED_BACKENDS")
+    if allowed:
+        picks = [b.strip() for b in allowed.split(",")
+                 if b.strip() in AVAILABLE_BACKENDS]
+        return picks or [default]
+    return sorted({default, "demo"})
+
+
+def _resolve_backend(requested: Optional[str]):
+    """Backend a usar para un request: el pedido si está permitido, si no el
+    del proceso. Nunca deja elegir un backend fuera de la allowlist."""
+    default = os.environ.get("COMPASS_BACKEND", "fake")
+    if requested and requested in _selectable_backends():
+        return backend_from_kind(requested)
+    return backend_from_kind(default)
 
 
 @contextmanager

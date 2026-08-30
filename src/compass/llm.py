@@ -815,13 +815,63 @@ class OllamaBackend:
         return response
 
 
-def backend_from_env() -> Backend:
-    """Elige backend por COMPASS_BACKEND: fake (default) | gemini | anthropic | ollama.
+class OpenAIBackend:
+    """Backend OpenAI Chat Completions. ESQUELETO: NO PROBADO EN VIVO.
 
-    'gemini' es el backend del hackathon (modelo obligatorio); 'fake' es
-    el default para que el ciclo corra offline y en tests sin credencial.
+    La key se lee del entorno en el momento de uso y no se persiste ni se
+    loguea. Existe para el pitch multi-vendor: COMPASS no está atado a un
+    proveedor — cambiarlo cambia la prosa y ningún número sellado.
     """
-    kind = os.environ.get("COMPASS_BACKEND", "fake")
+
+    URL = "https://api.openai.com/v1/chat/completions"
+
+    def __init__(self, model: str = "gpt-4o-mini",
+                 api_key_env: str = "OPENAI_API_KEY",
+                 max_tokens: int = 1024, timeout: int = 60):
+        self._model = model
+        self._api_key_env = api_key_env
+        self._max_tokens = max_tokens
+        self._timeout = timeout
+
+    def complete(self, system: str, user: str) -> str:
+        api_key = os.environ.get(self._api_key_env)
+        if not api_key:
+            raise RuntimeError(
+                f"falta la variable de entorno {self._api_key_env}; "
+                "no se intenta ninguna llamada sin credencial"
+            )
+        body = json.dumps({
+            "model": self._model,
+            "max_tokens": self._max_tokens,
+            "messages": [{"role": "system", "content": system},
+                         {"role": "user", "content": user}],
+        }).encode("utf-8")
+        req = urllib.request.Request(
+            self.URL, data=body, method="POST",
+            headers={"content-type": "application/json",
+                     "authorization": f"Bearer {api_key}"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=self._timeout) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+        except urllib.error.URLError as exc:
+            raise RuntimeError(f"error llamando a OpenAI: {exc}") from exc
+        try:
+            return data["choices"][0]["message"]["content"]
+        except (KeyError, IndexError, TypeError) as exc:
+            raise RuntimeError(
+                f"respuesta de OpenAI con forma inesperada: {exc}"
+            ) from exc
+
+
+# Todos los backends elegibles. 'demo'/'fake' corren sin credencial; el resto
+# necesita su API/servicio. La app hosteada suele exponer solo demo+gemini.
+AVAILABLE_BACKENDS = ("fake", "demo", "gemini", "anthropic", "ollama", "openai")
+
+
+def backend_from_kind(kind: str) -> Backend:
+    """Construye un backend por su nombre. 'gemini' es el del hackathon; 'fake'
+    y 'demo' corren offline sin credencial."""
     if kind == "fake":
         return FakeBackend(
             "Estado narrado por el backend fake: los números del resumen "
@@ -841,4 +891,14 @@ def backend_from_env() -> Backend:
         return OllamaBackend(
             model=os.environ.get("COMPASS_MODEL", "llama3.1")
         )
-    raise RuntimeError(f"COMPASS_BACKEND desconocido: {kind!r}")
+    if kind == "openai":
+        return OpenAIBackend(
+            model=os.environ.get("COMPASS_MODEL", "gpt-4o-mini")
+        )
+    raise RuntimeError(f"backend desconocido: {kind!r}; "
+                       f"opciones: {AVAILABLE_BACKENDS}")
+
+
+def backend_from_env() -> Backend:
+    """El backend por defecto del proceso (COMPASS_BACKEND, o 'fake')."""
+    return backend_from_kind(os.environ.get("COMPASS_BACKEND", "fake"))

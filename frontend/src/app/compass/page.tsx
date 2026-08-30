@@ -40,6 +40,7 @@ import { CompassIdControl } from "@/components/CompassIdControl";
 import { QuickTour } from "@/components/QuickTour";
 import { Panel, Empty, ExampleChips } from "@/components/Panel";
 import { TrajectoriesPanel } from "@/components/TrajectoriesPanel";
+import { IntakePanel } from "@/components/IntakePanel";
 
 const NEXT_STEP_ICON: Record<NextStepKind, typeof FlaskConical> = {
   completar_experimento: ClipboardCheck,
@@ -246,6 +247,9 @@ export default function CompassDashboard() {
             hypotheses={s?.hypotheses ?? []}
             onAdded={() => void refetch()}
           />
+
+          {/* Vocational intake — seeds candidate hypotheses (pending) */}
+          <IntakePanel onRegistered={() => void refetch()} />
 
           {/* Trajectories — vocational fit over the SEALED hypotheses */}
           <TrajectoriesPanel

@@ -269,3 +269,34 @@ export interface ResourcesResponse {
   sources: GroundingSource[];
   note?: string;
 }
+
+/* ─────────────────────────── Intake (Big Five + RIASEC) ─────────────────────────── */
+
+// The intake SEEDS candidate hypotheses to test — it is never a verdict.
+export type Instrument = "big_five" | "riasec";
+
+export interface IntakeItem {
+  code: string;
+  dimension: string;
+  text: string;
+}
+
+export interface IntakeItemsResponse {
+  instrument: Instrument;
+  lang: string;
+  items: IntakeItem[];
+}
+
+export interface IntakeProposal {
+  dimension: string;
+  raw: number;
+  max: number;
+  statement: string;
+}
+
+export interface IntakeProposalsResponse {
+  assessment_id: number | string;
+  instrument: Instrument;
+  proposals: IntakeProposal[];
+  note: string;
+}

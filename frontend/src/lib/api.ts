@@ -18,6 +18,9 @@ import type {
   DiscriminateResponse,
   DesignExperimentResponse,
   ResourcesResponse,
+  Instrument,
+  IntakeItemsResponse,
+  IntakeProposalsResponse,
 } from "./types";
 import { getUserId } from "./session";
 
@@ -238,4 +241,46 @@ export const findResources = (hypothesisId: number | string) =>
   request<ResourcesResponse>("/api/resources", {
     method: "POST",
     body: JSON.stringify({ hypothesis_id: Number(hypothesisId) }),
+  });
+
+/* ─────────────────────────── Intake (Big Five + RIASEC) ───────────────────────────
+   The intake SEEDS candidate hypotheses. Registering a proposal creates a
+   PENDING hypothesis (validated=false) — nothing counts until validated. */
+
+export const getIntakeItems = (instrument: Instrument, lang: "en" | "es") =>
+  request<IntakeItemsResponse>(
+    `/api/intake/items?instrument=${encodeURIComponent(instrument)}&lang=${encodeURIComponent(lang)}`,
+  );
+
+export const createAssessment = (instrument: Instrument) =>
+  request<{ assessment_id: number | string }>("/api/intake/assessments", {
+    method: "POST",
+    body: JSON.stringify({ instrument }),
+  });
+
+export const submitResponses = (
+  assessmentId: number | string,
+  responses: { item_code: string; value: number }[],
+) =>
+  request<{ submitted: boolean }>(
+    `/api/intake/assessments/${assessmentId}/responses`,
+    { method: "POST", body: JSON.stringify({ responses }) },
+  );
+
+export const getIntakeProposals = (assessmentId: number | string) =>
+  request<IntakeProposalsResponse>(
+    `/api/intake/assessments/${assessmentId}/proposals`,
+  );
+
+export const registerIntakeProposal = (
+  assessmentId: number | string,
+  dimension: string,
+) =>
+  request<{
+    hypothesis_id: number | string;
+    evidence_id: number | string;
+    validated: false;
+  }>(`/api/intake/assessments/${assessmentId}/register`, {
+    method: "POST",
+    body: JSON.stringify({ dimension }),
   });

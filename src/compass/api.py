@@ -32,8 +32,8 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from . import (confrontation, domain, engine, intake, onet, seed_demo, storage,
-               trajectories, views)
+from . import (confrontation, domain, engine, intake, onet, prompts, seed_demo,
+               storage, trajectories, views)
 from .audit_chain import verify_chain, verify_content
 from .db import EVIDENCE_TYPES, open_db
 from .llm import (AVAILABLE_BACKENDS, Abductor, Extractor, LLMOutputError,
@@ -343,6 +343,16 @@ def complete_experiment(experiment_id: int, body: CompleteIn,
         except domain.DomainError as exc:
             raise _domain_error(exc)
     return {"experiment_id": experiment_id, "generated_evidence_id": eid}
+
+
+# --------------------------------------------------- guía de narrativa ------
+
+@app.get("/api/prompts")
+def narrative_prompts(lang: str = "en", tier: Optional[str] = None) -> dict:
+    """Preguntas-guía para que nadie se trabe frente a una caja en blanco. Dos
+    niveles: 'easy' (rampa suave) y 'deeper' (episódicas). Sin `tier`, vienen
+    todas (las fáciles primero). La respuesta va al extractor; no concluye nada."""
+    return {"prompts": prompts.starter_prompts(lang, tier)}
 
 
 # --------------------------------------------------------------- intake -----

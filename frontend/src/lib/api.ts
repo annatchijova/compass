@@ -34,23 +34,48 @@ export class ApiError extends Error {
   }
 }
 
+const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   // Identify which isolated compass this request reads/writes. Read from
   // localStorage at call time; empty on the server (SSR) — all callers here
   // are client components, so a real id is present in the browser.
   const userId = getUserId();
-  let res: Response;
-  try {
-    res = await fetch(`${API_BASE}${path}`, {
-      ...init,
-      headers: {
-        "Content-Type": "application/json",
-        ...(userId ? { "X-Compass-User": userId } : {}),
-        ...(init?.headers || {}),
-      },
-      cache: "no-store",
-    });
-  } catch (e) {
+  // A just-deployed Cloud Run backend can be cold on the first hit; a thrown
+  // fetch means the request never reached the server (safe to retry, even for
+  // POST), and 502/503/504 on a GET is a transient gateway/cold start. Retry a
+  // few times with backoff so a warming backend doesn't surface as an error.
+  const MAX_ATTEMPTS = 3;
+  const isGet = !init?.method || init.method.toUpperCase() === "GET";
+  let res: Response | undefined;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      res = await fetch(`${API_BASE}${path}`, {
+        ...init,
+        headers: {
+          "Content-Type": "application/json",
+          ...(userId ? { "X-Compass-User": userId } : {}),
+          ...(init?.headers || {}),
+        },
+        cache: "no-store",
+      });
+    } catch (e) {
+      if (attempt < MAX_ATTEMPTS) {
+        await delay(400 * attempt);
+        continue;
+      }
+      throw new ApiError(
+        `Cannot reach the COMPASS backend at ${API_BASE}. Is it running?`,
+        0,
+      );
+    }
+    if (isGet && [502, 503, 504].includes(res.status) && attempt < MAX_ATTEMPTS) {
+      await delay(400 * attempt);
+      continue;
+    }
+    break;
+  }
+  if (!res) {
     throw new ApiError(
       `Cannot reach the COMPASS backend at ${API_BASE}. Is it running?`,
       0,

@@ -276,6 +276,17 @@ const dict = {
     "err.design": "Could not draft the experiment.",
     "err.resources": "Could not look for resources.",
 
+    // Proposed trajectories (composed from existing hypotheses only)
+    "traj.propose": "Propose paths",
+    "traj.proposeTitle": "Candidate paths",
+    "traj.proposeNote":
+      "Built only from capabilities you already have on record — nothing was created and no index moved. Accept the one worth keeping.",
+    "traj.proposeAccept": "Add this path",
+    "traj.proposeDismiss": "Dismiss",
+    "traj.proposeEmpty": "No paths came back.",
+    "traj.proposeRequires": "Requires",
+    "err.propose": "Could not propose paths.",
+
     // Compass ID control
     "user.button": "Compass ID",
     "user.title": "Your Compass ID",
@@ -556,6 +567,17 @@ const dict = {
     "kind.person": "persona",
     "err.design": "No se pudo redactar el experimento.",
     "err.resources": "No se pudieron buscar recursos.",
+
+    // Trayectorias propuestas (compuestas solo con hipótesis existentes)
+    "traj.propose": "Proponer caminos",
+    "traj.proposeTitle": "Caminos candidatos",
+    "traj.proposeNote":
+      "Armados solo con capacidades que ya tenés registradas — no se creó nada ni se movió ningún índice. Aceptá el que valga la pena.",
+    "traj.proposeAccept": "Agregar este camino",
+    "traj.proposeDismiss": "Descartar",
+    "traj.proposeEmpty": "No volvió ningún camino.",
+    "traj.proposeRequires": "Requiere",
+    "err.propose": "No se pudieron proponer caminos.",
 
     // Control de Compass ID
     "user.button": "Compass ID",

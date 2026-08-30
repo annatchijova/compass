@@ -269,3 +269,19 @@ export interface ResourcesResponse {
   sources: GroundingSource[];
   note?: string;
 }
+
+export interface ProposedRequirement {
+  hypothesis_id: number;
+  label: string;
+}
+
+export interface ProposedTrajectory {
+  name: string;
+  description: string;
+  requirements: ProposedRequirement[];
+}
+
+export interface ProposeTrajectoriesResponse {
+  proposals: ProposedTrajectory[];
+  note?: string;
+}

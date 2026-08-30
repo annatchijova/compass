@@ -1,7 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AlertCircle, Compass, Plus, RefreshCw, Split, Target } from "lucide-react";
+import {
+  AlertCircle,
+  Compass,
+  Plus,
+  RefreshCw,
+  Sparkles,
+  Split,
+  Target,
+} from "lucide-react";
 import * as api from "@/lib/api";
 import { ApiError } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
@@ -9,6 +17,7 @@ import { Panel, Empty, ExampleChips } from "@/components/Panel";
 import { TrajectoryFit, FitChip } from "@/components/TrajectoryFit";
 import type {
   Hypothesis,
+  ProposedTrajectory,
   Trajectory,
   TrajectoryFitResponse,
   DiscriminateResponse,
@@ -151,6 +160,8 @@ export function TrajectoriesPanel({
     [selected, loadFit, t],
   );
 
+  const hasHypotheses = allHypotheses.length > 0;
+
   return (
     <Panel
       title={t("panel.traj.title")}
@@ -208,6 +219,14 @@ export function TrajectoriesPanel({
       ) : (
         <Empty>{t("panel.traj.empty")}</Empty>
       )}
+
+      <ProposePaths
+        canPropose={hasHypotheses}
+        onAccepted={async () => {
+          const list = await loadTrajectories();
+          if (list.length > 0) onSelect(String(list[list.length - 1].id));
+        }}
+      />
 
       <AddTrajectoryForm busy={busy === "add"} onAdd={addTrajectory} />
 
@@ -505,6 +524,152 @@ function DiscriminatePanel({ trajectories }: { trajectories: Trajectory[] }) {
           <p className="text-[11.5px] text-ink-500">
             {t("traj.disc.shared", { n: result.shared_requirements.length })}
           </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+/**
+ * Candidate paths, composed by the model out of hypotheses that already
+ * exist. It cannot cite one the person does not have — the API rejects an
+ * invented id at the boundary — and it creates nothing on its own.
+ *
+ * Accepting goes through the ORDINARY endpoints, the same two calls the
+ * person would make by hand. The proposer gets no private write path.
+ */
+function ProposePaths({
+  canPropose,
+  onAccepted,
+}: {
+  canPropose: boolean;
+  onAccepted: () => Promise<void>;
+}) {
+  const { t } = useI18n();
+  const [proposals, setProposals] = useState<ProposedTrajectory[] | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  const propose = async () => {
+    setBusy("propose");
+    setErr(null);
+    try {
+      setProposals((await api.proposeTrajectories()).proposals);
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : t("err.propose"));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const accept = async (p: ProposedTrajectory, i: number) => {
+    setBusy(`accept-${i}`);
+    setErr(null);
+    try {
+      const { trajectory_id } = await api.postTrajectory({
+        name: p.name,
+        description: p.description,
+      });
+      for (const req of p.requirements) {
+        await api.postRequirement(trajectory_id, {
+          hypothesis_id: req.hypothesis_id,
+          label: req.label,
+        });
+      }
+      setProposals((cur) => (cur ?? []).filter((_, j) => j !== i));
+      await onAccepted();
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : t("err.propose"));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  if (!canPropose) return null;
+
+  return (
+    <div className="mt-4 border-t border-ink-900/5 pt-4">
+      <button
+        onClick={() => void propose()}
+        disabled={busy !== null}
+        className="btn-ghost inline-flex items-center gap-2 rounded-full px-4 py-2 text-[13px] font-bold"
+      >
+        {busy === "propose" ? (
+          <RefreshCw className="h-4 w-4 animate-spin" />
+        ) : (
+          <Sparkles className="h-4 w-4" />
+        )}
+        {t("traj.propose")}
+      </button>
+
+      {err && (
+        <p className="mt-2 flex items-center gap-1.5 text-[12px] text-status-debilitada">
+          <AlertCircle className="h-3.5 w-3.5 shrink-0" /> {err}
+        </p>
+      )}
+
+      {proposals && (
+        <div className="mt-3">
+          <p className="text-[10.5px] font-bold uppercase tracking-wide text-ink-400">
+            {t("traj.proposeTitle")}
+          </p>
+          <p className="mb-2 mt-1 text-[11.5px] leading-relaxed text-ink-500">
+            {t("traj.proposeNote")}
+          </p>
+          {proposals.length === 0 ? (
+            <Empty>{t("traj.proposeEmpty")}</Empty>
+          ) : (
+            <div className="space-y-2">
+              {proposals.map((p, i) => (
+                <div key={`${p.name}-${i}`} className="card-solid rounded-2xl p-3.5">
+                  {/* Model-authored text: rendered as content, never executed. */}
+                  <p className="text-[13px] font-bold text-ink-900">{p.name}</p>
+                  <p className="mt-0.5 text-[12px] leading-relaxed text-ink-600">
+                    {p.description}
+                  </p>
+                  <p className="mt-2 text-[10px] font-bold uppercase tracking-wide text-ink-400">
+                    {t("traj.proposeRequires")}
+                  </p>
+                  <ul className="mt-1 space-y-0.5">
+                    {p.requirements.map((r) => (
+                      <li
+                        key={r.hypothesis_id}
+                        className="flex items-start gap-1.5 text-[12px] text-ink-700"
+                      >
+                        <Target className="mt-0.5 h-3 w-3 shrink-0 text-ink-400" />
+                        <span>{r.label}</span>
+                        <span className="font-mono text-[10.5px] text-ink-400">
+                          #{r.hypothesis_id}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      onClick={() => void accept(p, i)}
+                      disabled={busy !== null}
+                      className="btn-primary shadow-soft inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-[12px] font-bold"
+                    >
+                      {busy === `accept-${i}` && (
+                        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                      )}
+                      {t("traj.proposeAccept")}
+                    </button>
+                    <button
+                      onClick={() =>
+                        setProposals((cur) => (cur ?? []).filter((_, j) => j !== i))
+                      }
+                      disabled={busy !== null}
+                      className="btn-ghost rounded-full px-4 py-1.5 text-[12px] font-bold"
+                    >
+                      {t("traj.proposeDismiss")}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

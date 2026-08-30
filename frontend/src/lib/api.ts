@@ -18,6 +18,7 @@ import type {
   DiscriminateResponse,
   DesignExperimentResponse,
   ResourcesResponse,
+  ProposeTrajectoriesResponse,
 } from "./types";
 import { getUserId } from "./session";
 
@@ -213,4 +214,12 @@ export const findResources = (hypothesisId: number | string) =>
   request<ResourcesResponse>("/api/resources", {
     method: "POST",
     body: JSON.stringify({ hypothesis_id: Number(hypothesisId) }),
+  });
+
+// Composes paths out of hypotheses that already exist — it cannot cite one
+// the person does not have, and it creates nothing. Accepting a proposal
+// goes through the ordinary postTrajectory/postRequirement calls.
+export const proposeTrajectories = () =>
+  request<ProposeTrajectoriesResponse>("/api/trajectories/propose", {
+    method: "POST",
   });

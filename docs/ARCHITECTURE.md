@@ -16,6 +16,7 @@ flowchart TD
     subgraph llm["LLM roles — NO authority (Gemini via ADK / Vertex AI)"]
         EX[Extractor: narrative → candidate signals]
         AB[Abductor: rival hypotheses + discriminating experiments]
+        TP[Trajectory proposer: candidate paths from EXISTING hypotheses only]
         RF[Resource finder: where to go run the experiment — Google Search, cited]
         NA[Narrator: puts the SEALED state into words]
     end
@@ -42,6 +43,8 @@ flowchart TD
     AB -.proposes hypotheses.-> DOM
     WEB -.data, never instruction.-> RF
     RF -.suggests where to run it, OUTSIDE the seal.-> P
+    DOM -.existing hypotheses, the only ids it may cite.-> TP
+    TP -.proposes paths, creates none.-> P
     DOM --> ENG --> SEAL --> CHAIN
     CHAIN -.-> VER
     SEAL -->|read-only compressed summary| NA
@@ -56,7 +59,7 @@ flowchart TD
     classDef det fill:#eef2ff,stroke:#6366f1,color:#1e1b4b;
     classDef ext fill:#fef2f2,stroke:#ef4444,color:#7f1d1d;
     class WEB ext;
-    class EX,AB,NA,RF noauth;
+    class EX,AB,NA,RF,TP noauth;
     class DOM,ENG,SEAL,CHAIN,VER det;
 ```
 
@@ -68,7 +71,7 @@ flowchart TD
 | Independent verifier | `tools/verify_chain.py` | — | re-implements the seal spec, imports nothing from the package |
 | Compass view | `src/compass/views.py` | rules | sealed state + one deterministic next step (ABSTAIN is valid) |
 | Trajectories | `src/compass/trajectories.py` | rules | vocational fit: capability-requirements projected over SEALED hypotheses; counts, never a destiny percentage |
-| LLM roles | `src/compass/llm.py` | **none** | extractor / abductor / experiment designer / resource finder / narrator; every output validated at the boundary or rejected |
+| LLM roles | `src/compass/llm.py` | **none** | extractor / abductor / trajectory proposer / experiment designer / resource finder / narrator; every output validated at the boundary or rejected |
 | ADK agent | `src/compass/agent/agent.py` | bounded by its tools | Collaborative Partner over the abductive cycle |
 | HTTP API | `src/compass/api.py` | — | thin layer over the sealed domain, for the frontend |
 

@@ -36,7 +36,7 @@ from . import domain, engine, seed_demo, storage, trajectories, views
 from .audit_chain import verify_chain, verify_content
 from .db import EVIDENCE_TYPES, open_db
 from .llm import (Abductor, Extractor, LLMOutputError, Narrator,
-                  ResourceFinder, backend_from_env)
+                  ResourceFinder, TrajectoryProposer, backend_from_env)
 
 
 @contextmanager
@@ -458,6 +458,44 @@ def _hypothesis_statement(conn, hypothesis_id: int) -> str:
         raise HTTPException(status_code=404,
                             detail=f"hypothesis id={hypothesis_id} no existe")
     return row["statement"]
+
+
+@app.post("/api/trajectories/propose")
+def propose_trajectories(uid: str = Depends(get_uid)) -> dict:
+    """Trazador (rol LLM SIN autoridad): propone caminos candidatos
+    componiendo las hipótesis que YA existen.
+
+    Ataca la hoja en blanco sin regalarle capacidades al modelo: se le
+    pasan las hipótesis de la persona —TODAS, incluidas las latentes, que
+    el estado sellado oculta (§3.2) y que son justamente las que un camino
+    nuevo necesita— y solo puede citar esos ids. Un id inventado se rechaza
+    en frontera.
+
+    No persiste nada: crear la trayectoria y sus requisitos es un acto de
+    la persona, con las ediciones que quiera.
+    """
+    with _db(uid) as conn:
+        rows = conn.execute(
+            "SELECT id, statement, status FROM hypothesis "
+            "WHERE status != 'descartada' ORDER BY id ASC"
+        ).fetchall()
+    hypotheses = [dict(r) for r in rows]
+    if not hypotheses:
+        raise HTTPException(
+            status_code=409,
+            detail="no hay hipótesis con las que armar una trayectoria: "
+                   "registrá al menos una capacidad primero")
+    backend = backend_from_env()
+    try:
+        proposals = TrajectoryProposer(backend).propose(hypotheses)
+    except LLMOutputError as exc:
+        raise HTTPException(status_code=422,
+                            detail=f"salida del modelo rechazada en frontera: {exc}")
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"error del backend LLM: {exc}")
+    return {"proposals": proposals,
+            "note": "propuestas: no se creó ninguna trayectoria y ningún "
+            "índice se movió; aceptá la que te sirva"}
 
 
 @app.post("/api/experiments/design")

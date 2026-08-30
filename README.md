@@ -92,17 +92,30 @@ decides. Four roles, none with authority:
 |---|---|---|
 | **Extractor** | candidate signals from a narrative | validating one is what makes it evidence |
 | **Abductor** | rival hypotheses about a capability | keeping or discarding one |
+| **Trajectory proposer** | candidate paths, composed **only** from hypotheses that already exist | accepting one creates it, through the ordinary endpoints |
 | **Experiment designer** | a discriminating experiment for an open capability — design, success criterion, and the **failure criterion declared before running it** | editing it and preregistering it |
 | **Resource finder** | concrete places to go *run* that experiment — a course, community, open project, reading, tool, or kind of person — found by Google Search on Vertex, each with its source | deciding whether any is worth their time |
 
-The last two answer the question a vocational test usually dodges: not "what
-are you like" but **"what do you do on Monday to find out"**.
+The last three answer the question a vocational test usually dodges: not
+"what are you like" but **"what do you do on Monday to find out"** — and the
+trajectory proposer answers the one before it, *which paths are even worth
+weighing*, so nobody starts at a blank page.
 
-Both are proposals in the strict sense — asking for either writes nothing,
-appends nothing to the chain, and moves no index. That is not a convention,
-it is a test: `test_suggesting_moves_no_sealed_number` compares the sealed
-state, the chain length and a fresh recompute across both calls, and fails
-if any of them budges.
+All three are proposals in the strict sense — asking for any of them writes
+nothing, appends nothing to the chain, and moves no index. That is not a
+convention, it is a test: `test_suggesting_moves_no_sealed_number` and
+`test_proposing_trajectories_moves_no_sealed_number` compare the sealed
+state, the chain length and a fresh recompute across the calls, and fail if
+any of them budges. A negative control confirmed they go red the moment an
+endpoint writes.
+
+The trajectory proposer carries a guard of its own: **it may only cite
+hypotheses that exist**. A model that could invent a hypothesis id could
+invent the capability that makes a path look good, so every requirement is
+checked against the person's real ids and an unknown one is rejected at the
+boundary rather than created (proposing *new* capabilities is the abductor's
+job, not this one's). Accepting a proposal runs the same two endpoints the
+person would use by hand — the proposer gets no private write path.
 
 Two honesty rules the resource finder carries, because it is the first
 feature that reads the outside world:
@@ -188,7 +201,7 @@ no credential and no cloud, using a role-aware `demo` backend.
 ### 1. The core cycle (CLI, offline)
 
 ```bash
-python3 -m pytest                          # 138 tests — see "Tests" for the extras
+python3 -m pytest                          # 146 tests — see "Tests" for the extras
 PYTHONPATH=src python3 -m compass init     # then: person, evidence, hyp, link, exp,
                                            # observe, reflect, recompute, compass,
                                            # traj, verify
@@ -384,18 +397,18 @@ work that is simply not done yet.
 
 ```bash
 pip install pytest '.[api,gemini,adk]'
-python3 -m pytest -q      # 138 tests, all green
+python3 -m pytest -q      # 146 tests, all green
 ```
 
 **What each extra buys you.** The suite is layered like the code: the core
 tests are stdlib-only, the rest need the extra whose surface they cover.
 
-| Installed | Result (138 collected) |
+| Installed | Result (146 collected) |
 |---|---|
-| nothing (stdlib) | 125 pass · 7 fail + 4 error, all `ModuleNotFoundError: fastapi` · 2 skip |
-| `.[api]` | 134 pass · 2 fail — the `GeminiBackend` fail-closed tests need `google-genai` · 2 skip |
-| `.[api,gemini]` | 136 pass · 2 skip — the ADK tests need `google-adk` |
-| `.[api,gemini,adk]` | 138 pass |
+| nothing (stdlib) | 130 pass · 7 fail + 7 error, all `ModuleNotFoundError: fastapi` · 2 skip |
+| `.[api]` | 142 pass · 2 fail — the `GeminiBackend` fail-closed tests need `google-genai` · 2 skip |
+| `.[api,gemini]` | 144 pass · 2 skip — the ADK tests need `google-adk` |
+| `.[api,gemini,adk]` | 146 pass |
 
 Failures in the first two rows are missing dependencies, not regressions; the
 core's own tests never need anything but the stdlib.

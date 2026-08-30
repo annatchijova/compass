@@ -17,7 +17,8 @@ from compass import engine, seed_demo, views
 from compass.db import open_db
 from compass.llm import (MAX_RESOURCES, RESOURCE_FINDER_SYSTEM, DemoBackend,
                          LLMOutputError, ResourceFinder, SearchingBackend,
-                         validate_resources)
+                         TrajectoryProposer, validate_resources,
+                         validate_trajectory_proposals)
 
 
 class _StubSearchBackend:
@@ -191,3 +192,114 @@ def test_resources_endpoint_declares_it_did_not_search(api_client):
 def test_unknown_hypothesis_is_404_on_both(api_client):
     for path in ("/api/experiments/design", "/api/resources"):
         assert api_client.post(path, json={"hypothesis_id": 9999}).status_code == 404
+
+
+# --------------------------------------------------- trajectory proposer ---
+
+def test_a_proposal_may_only_cite_hypotheses_that_exist():
+    """THE guard on this role. A model that could invent a hypothesis id
+    could invent the capability that makes a path look good. Composing
+    existing hypotheses is allowed; referencing anything else is not."""
+    payload = json.dumps([{
+        "name": "Invented path", "description": "d",
+        "requirements": [{"hypothesis_id": 99, "label": "a capability"}],
+    }])
+    with pytest.raises(LLMOutputError, match="no es una hipótesis de esta persona"):
+        validate_trajectory_proposals(payload, {1, 2})
+
+
+def test_a_proposal_may_not_repeat_a_hypothesis_within_one_path():
+    """The domain rejects two requirements backed by the same hypothesis, so
+    the boundary rejects it before it becomes a guaranteed 400."""
+    payload = json.dumps([{
+        "name": "P", "description": "d",
+        "requirements": [{"hypothesis_id": 1, "label": "a"},
+                         {"hypothesis_id": 1, "label": "b"}],
+    }])
+    with pytest.raises(LLMOutputError, match="repetido"):
+        validate_trajectory_proposals(payload, {1, 2})
+
+
+def test_a_boolean_is_not_a_hypothesis_id():
+    """bool is a subclass of int, so it is checked first — the same rule the
+    canonicaliser applies to keep `1` and `True` distinguishable."""
+    payload = json.dumps([{
+        "name": "P", "description": "d",
+        "requirements": [{"hypothesis_id": True, "label": "a"}],
+    }])
+    with pytest.raises(LLMOutputError, match="hypothesis_id debe ser int"):
+        validate_trajectory_proposals(payload, {1, 2})
+
+
+def test_proposing_with_no_hypotheses_never_reaches_the_backend():
+    class _Boom:
+        def complete(self, system: str, user: str) -> str:  # pragma: no cover
+            raise AssertionError("must not call the model with nothing to compose")
+
+    with pytest.raises(LLMOutputError, match="al menos una capacidad"):
+        TrajectoryProposer(_Boom()).propose([])
+
+
+def test_the_proposer_only_sees_the_ids_it_may_use():
+    """What the model receives is what it may cite. Nothing else is in scope."""
+    class _Capture:
+        def __init__(self):
+            self.user = ""
+
+        def complete(self, system: str, user: str) -> str:
+            self.user = user
+            return json.dumps([{
+                "name": "P", "description": "d",
+                "requirements": [{"hypothesis_id": 7, "label": "a"}]}])
+
+    backend = _Capture()
+    out = TrajectoryProposer(backend).propose(
+        [{"id": 7, "statement": "Designs unaided", "status": "activa"}])
+    assert json.loads(backend.user) == [
+        {"id": 7, "statement": "Designs unaided", "status": "activa"}]
+    assert out[0]["requirements"][0]["hypothesis_id"] == 7
+
+
+def test_proposing_trajectories_moves_no_sealed_number(api_client):
+    """Same invariant as the other two roles: a proposal is not a write."""
+    before_state = api_client.get("/api/state").json()["seal"]
+    before_recompute = api_client.post("/api/recompute").json()["seal"]
+    before_chain = len(api_client.get("/api/chain").json()["entries"])
+    before_trajectories = len(
+        api_client.get("/api/trajectories").json()["trajectories"])
+
+    body = api_client.post("/api/trajectories/propose")
+    assert body.status_code == 200
+    proposals = body.json()["proposals"]
+    assert proposals, "the demo backend must return something to look at"
+
+    assert api_client.get("/api/state").json()["seal"] == before_state
+    # The chain is measured BEFORE recomputing again: a recompute legitimately
+    # appends, so checking it after would hide what the proposal did.
+    assert len(api_client.get("/api/chain").json()["entries"]) == before_chain
+    assert len(api_client.get("/api/trajectories").json()["trajectories"]) == (
+        before_trajectories), "a proposal created a trajectory on its own"
+    assert api_client.post("/api/recompute").json()["seal"] == before_recompute
+
+
+def test_proposals_cite_only_this_persons_hypotheses(api_client):
+    """End to end: whatever comes back is attachable, because every id in it
+    is one the person actually has."""
+    real = {h["id"] for h in api_client.get("/api/hypotheses").json()["hypotheses"]}
+    proposals = api_client.post("/api/trajectories/propose").json()["proposals"]
+    cited = {r["hypothesis_id"] for p in proposals for r in p["requirements"]}
+    assert cited <= real, f"proposal cited unknown hypotheses: {cited - real}"
+
+
+def test_a_proposal_is_accepted_through_the_ordinary_endpoints(api_client):
+    """Accepting is the person's act, done with the same endpoints they would
+    use by hand — the proposer gets no private write path."""
+    proposal = api_client.post("/api/trajectories/propose").json()["proposals"][0]
+    tid = api_client.post("/api/trajectories", json={
+        "name": proposal["name"], "description": proposal["description"],
+    }).json()["trajectory_id"]
+    for req in proposal["requirements"]:
+        assert api_client.post(
+            f"/api/trajectories/{tid}/requirements", json=req).status_code == 200
+    fit = api_client.get(f"/api/trajectories/{tid}/fit").json()
+    assert fit["summary"]["total"] == len(proposal["requirements"])

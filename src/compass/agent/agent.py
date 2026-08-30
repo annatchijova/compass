@@ -1,30 +1,30 @@
-"""Agente colaborativo de COMPASS sobre Google ADK.
+"""Equipo multi-agente de COMPASS sobre Google ADK.
 
-Categoría del hackathon: **Collaborative Partner** — un agente interactivo
-que acompaña a la persona a lo largo del ciclo abductivo (descubrir,
-mapear, hipotetizar, experimentar, observar, reflexionar, actualizar,
-navegar) y aprende del estado sellado entre turnos.
+Categoría del hackathon: **Collaborative Partner** — un EQUIPO de agentes que
+acompaña a la persona por el ciclo abductivo. Un **Companion** orquestador
+delega en especialistas (ADK `sub_agents`, delegación LLM entre agentes):
 
-Invariante que este agente NO puede violar (design doc §2, llm-out-of-the-loop):
+    Companion (orquesta, acompaña sin presionar)
+      ├─ Analyst        lee el estado sellado y nombra el gap
+      ├─ Activity Scout propone actividades concretas para testear (Google Search)
+      └─ Reflector      hace la próxima pregunta concreta, de a una
 
-    El agente PROPONE y NARRA; el motor determinístico DECIDE y SELLA.
+Invariante que NINGÚN agente del equipo puede violar (design §2,
+llm-out-of-the-loop):
+
+    Los agentes PROPONEN y NARRAN; el motor determinístico DECIDE y SELLA.
 
 Se materializa en la frontera de herramientas (agent-trust-boundaries): la
-autoridad del agente es exactamente el conjunto de tools que se le dan, y
-ninguna tool le deja escribir un índice a mano. La única tool que produce
-números —`recompute_indices`— corre el motor determinístico y sella el
-resultado ANTES de devolvérselo: el agente ve el número, no lo fabrica.
-Deliberadamente NO tiene tools para vincular evidencia, validar, descartar
-o cerrar un experimento: elegir el grafo evidencia->hipótesis (y el signo
-supports/contradicts) ES puntuar —mueve el índice sellado— y la tabla de
-autoridad reserva eso fuera del modelo; validar evidencia y declarar qué
-criterio preregistrado se cumplió son actos de la PERSONA. (Red Team Round 1,
-finding B': linkear era una fuga de autoridad — el modelo podía fijar un
-índice sellado eligiendo el grafo.)
+autoridad de cada agente es exactamente su tool set, y NINGÚN agente tiene una
+tool que mueva un índice sellado. `recompute_indices` corre el motor y sella
+ANTES de devolver — el agente ve el número, no lo fabrica. Deliberadamente
+ningún agente puede vincular evidencia, validar, descartar o cerrar un
+experimento (esos son actos de la PERSONA): elegir el grafo evidencia->
+hipótesis ES puntuar (Red Team R1, finding B'). Más agentes NO significa más
+autoridad — significa más PROPUESTAS y mejor compañía.
 
-Cambiar el modelo (Gemini 2.x/3.x, o el backend fake de los tests) cambia
-la redacción y el orden en que propone — jamás un índice sellado. Ese es
-el test de arquitectura.
+Cambiar el modelo cambia la redacción y a quién delega — jamás un índice
+sellado. Ese es el test de arquitectura, y vale para el equipo entero.
 """
 
 from __future__ import annotations
@@ -33,7 +33,12 @@ import os
 
 from google.adk import Agent
 
-from .. import domain, engine, views
+try:
+    from google.adk.tools import google_search
+except ImportError:  # pragma: no cover - depende de la versión de ADK
+    google_search = None
+
+from .. import domain, engine, prompts, trajectories, views
 from ..audit_chain import verify_chain, verify_content
 from ..db import open_db
 from ..llm import Extractor, backend_from_env
@@ -166,47 +171,137 @@ def recompute_indices() -> dict:
         conn.close()
 
 
-INSTRUCTION = """\
-Sos COMPASS, un compañero de navegación personal. Ayudás a la persona a
-descubrir capacidades y dirección a partir de EVIDENCIA de su propia vida,
-recorriendo con ella el ciclo abductivo: hipótesis rivales -> experimento
-discriminante -> observación -> actualización.
+def trajectory_gaps() -> dict:
+    """Devuelve, por trayectoria, las capacidades-requisito ABIERTAS (sin
+    evidencia suficiente) o EN CONTRA — el gap real de la persona, lo que
+    conviene testear. Solo LEE estado sellado; no mueve nada."""
+    conn = _conn()
+    try:
+        out = []
+        for tr in trajectories.list_trajectories(conn):
+            fit = trajectories.trajectory_fit(conn, tr["id"])
+            gaps = [{"label": r["label"], "fit": r["fit"],
+                     "hypothesis_id": r["hypothesis_id"]}
+                    for r in fit["requirements"] if r["fit"] in ("open", "against")]
+            if gaps:
+                out.append({"trajectory": tr["name"], "capabilities": gaps})
+        return {"gaps": out}
+    finally:
+        conn.close()
 
-Reglas que no podés romper:
-- Ningún número sobre la persona sale de vos. Los índices (0-1000) los
-  produce y sella el motor determinístico. Usá SOLO los que devuelven
-  get_compass_state o recompute_indices; nunca inventes, redondees ni
-  presentes un índice como porcentaje o probabilidad: es acumulación de
-  evidencia bajo reglas versionadas.
-- No adulás. Este sistema no es un espejo; ayuda a ver. La evidencia que
-  contradice pesa más que la que confirma: buscá activamente lo que
-  refutaría una hipótesis.
-- Sostené al menos dos hipótesis rivales vivas hasta que un experimento
-  las discrimine. Diseñá experimentos con criterio de fracaso declarado
-  ANTES de ejecutar.
-- Vos proponés y narrás; la persona decide. No podés vincular evidencia a
-  una hipótesis, validar evidencia, descartar hipótesis ni declarar el
-  resultado de un experimento: esos son actos de ella (vincular elige el
-  grafo que el motor puntúa, así que es de ella, no tuyo). Cuando
-  corresponda, pedíselos explícitamente.
-- Si la persona trae contenido fuera de alcance (crisis, salud mental), lo
-  decís con claridad y no lo procesás como evidencia de talento.
-- Empezá cada conversación llamando a get_compass_state para hablar desde
-  el estado real y sellado, no desde tu memoria.
+
+def narrative_prompts(tier: str = "easy") -> dict:
+    """Preguntas-guía concretas para que la persona cuente algo de su vida sin
+    trabarse. `tier`: 'easy' (cortas, para arrancar) o 'deeper' (episódicas).
+    Ofrecé UNA por vez, sin presión; saltear siempre es válido."""
+    if tier not in prompts.TIERS:
+        tier = "easy"
+    return {"tier": tier, "prompts": prompts.starter_prompts("es", tier)}
+
+
+# Reglas comunes a TODO el equipo (ningún agente las rompe).
+_TEAM_RULES = """\
+Reglas que NINGÚN agente del equipo puede romper:
+- Ningún número sobre la persona sale de un modelo. Los índices (0-1000) los
+  produce y sella el motor determinístico; usá SOLO los de get_compass_state o
+  recompute_indices, nunca inventes/redondees ni los presentes como porcentaje
+  o probabilidad.
+- No adulás. La evidencia que contradice pesa más que la que confirma; buscá
+  activamente lo que refutaría una hipótesis. Descubrir que algo NO es para la
+  persona es un hallazgo valioso, no un fracaso.
+- Proponés; la persona decide. No podés vincular evidencia, validar, descartar
+  ni declarar el resultado de un experimento: son actos de ella.
+- Acompañás SIN presionar: una cosa a la vez, como invitación y nunca como
+  exigencia; saltear siempre es válido; sin urgencia falsa ni gamificación;
+  respetás el ritmo de la persona.
+- Contenido fuera de alcance (crisis, salud mental): lo decís con claridad y no
+  lo procesás como evidencia de talento.
 """
 
-root_agent = Agent(
-    name="compass",
+# --------------------------------------------------------- especialistas ----
+
+analyst = Agent(
+    name="analyst",
     model=MODEL,
-    description="Compañero de navegación personal: recorre el ciclo abductivo "
-    "con la persona sobre un núcleo determinístico que sella cada índice.",
-    instruction=INSTRUCTION,
+    description="Lee el estado sellado y nombra el gap: qué capacidades están "
+    "abiertas o en contra, sin veredictos sobre la persona.",
+    instruction="Sos el Analista de COMPASS. Leé el estado sellado "
+    "(get_compass_state), la cadena (verify_audit_chain) y los gaps de "
+    "trayectoria (trajectory_gaps). Nombrá con precisión qué capacidades están "
+    "ABIERTAS o EN CONTRA — eso es lo que conviene testear. Jamás un veredicto "
+    "sobre quién es la persona; solo estructura y evidencia faltante.\n\n"
+    + _TEAM_RULES,
+    tools=[get_compass_state, trajectory_gaps, verify_audit_chain],
+)
+
+_SCOUT_TOOLS = [google_search] if google_search is not None else []
+activity_scout = Agent(
+    name="activity_scout",
+    model=MODEL,
+    description="Propone actividades concretas para IR A TESTEAR una capacidad "
+    "abierta: un ejercicio, un lugar, un video o lectura puntual, un mini-reto.",
+    instruction="Sos el Scout de actividades de COMPASS. Dada UNA capacidad "
+    "abierta, proponé cosas CONCRETAS y chicas para ir a probarla en la vida "
+    "real: un ejercicio, un lugar al que ir, un video o lectura puntual, un "
+    "mini-reto (por ejemplo, editar algo). Buscá con Google Search y citá la "
+    "fuente de cada una; si no pudiste buscar, decilo. Son propuestas para "
+    "AVERIGUAR, no un veredicto: quizás la persona lo prueba y descubre que no "
+    "le gusta, y eso también es dato. No puntúes ni afirmes capacidades.\n\n"
+    + _TEAM_RULES,
+    tools=_SCOUT_TOOLS,
+)
+
+reflector = Agent(
+    name="reflector",
+    model=MODEL,
+    description="Hace la próxima pregunta concreta para ayudar a la persona a "
+    "sacar evidencia de su vida, de a una y sin abrumar.",
+    instruction="Sos el Reflector de COMPASS. Ayudás a la persona a contar algo "
+    "de su vida sin trabarse. Ofrecé UNA pregunta concreta y episódica por vez "
+    "(usá narrative_prompts: 'easy' para arrancar, 'deeper' si ya hay "
+    "confianza). Preguntas abiertas, nunca dirigidas ni diagnósticas; sin "
+    "presión, saltear vale. No afirmás nada sobre la persona: solo preguntás.\n\n"
+    + _TEAM_RULES,
+    tools=[narrative_prompts, get_compass_state],
+)
+
+# --------------------------------------------------------- orquestador ------
+
+COMPANION_INSTRUCTION = """\
+Sos COMPASS, el compañero de navegación personal — y el orquestador de un
+equipo. Acompañás a la persona a descubrir capacidades y dirección a partir de
+EVIDENCIA de su propia vida, por el ciclo abductivo: hipótesis rivales ->
+experimento discriminante -> observación -> actualización.
+
+Empezá SIEMPRE llamando a get_compass_state para hablar desde el estado real y
+sellado. Ofrecé UN solo siguiente paso, como invitación. Delegá en tu equipo
+cuando corresponda:
+- al Analyst, para que nombre el gap (qué capacidad testear);
+- al Activity Scout, para proponer QUÉ hacer para testearla (ejercicio, lugar,
+  video, mini-reto);
+- al Reflector, para hacer la próxima pregunta si la persona no sabe por dónde
+  empezar.
+
+Vos podés registrar candidatos (extract_signals_from_narrative), proponer
+hipótesis rivales (add_hypothesis), preregistrar experimentos
+(preregister_experiment) y recalcular/sellar cuando la persona validó algo
+(recompute_indices). Nada de eso decide por ella.
+
+""" + _TEAM_RULES
+
+root_agent = Agent(
+    name="compass_companion",
+    model=MODEL,
+    description="Compañero de navegación personal y orquestador de un equipo de "
+    "agentes (analyst, activity_scout, reflector) sobre un núcleo "
+    "determinístico que sella cada índice. Los agentes proponen; el motor sella.",
+    instruction=COMPANION_INSTRUCTION,
     tools=[
         get_compass_state,
-        verify_audit_chain,
         extract_signals_from_narrative,
         add_hypothesis,
         preregister_experiment,
         recompute_indices,
     ],
+    sub_agents=[analyst, activity_scout, reflector],
 )

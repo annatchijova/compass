@@ -33,7 +33,7 @@ The three mandatory boxes, all checked:
 | Requirement | How COMPASS meets it |
 |---|---|
 | **Gemini model** (Gemini API or Vertex AI) | `GeminiBackend` (`src/compass/llm.py`) — one backend for both transports via the native `google-genai` env flags. The mandatory model, used only to *narrate* and *propose*. |
-| **Google agent framework** | **ADK** — `compass.agent.root_agent` (`src/compass/agent/agent.py`): a Collaborative Partner whose authority is exactly its tool set. |
+| **Google agent framework** | **ADK** — `compass.agent.root_agent` (`src/compass/agent/agent.py`): a **team** of agents — a Companion orchestrator with three specialist `sub_agents` (Analyst, Activity Scout with Google Search, Reflector). More agents means more *proposals*, never more authority: no agent in the team holds a tool that can move a sealed index (enforced by `tests/test_agent_team.py`). |
 | **Google Cloud service** | **Cloud Run** hosts the FastAPI backend; **Vertex AI** serves Gemini through the service identity (no API key stored). See [`DEPLOY.md`](DEPLOY.md). |
 
 - **Live web app (Cloud Run):** https://compass-web-1028999311218.us-central1.run.app

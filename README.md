@@ -86,7 +86,7 @@ never touches the decision path:
 ### What Gemini actually does here
 
 Growing the model's presence means growing what it *proposes*, never what it
-decides. Four roles, none with authority:
+decides. Five roles, none with authority:
 
 | Role | Proposes | Person's act |
 |---|---|---|

@@ -14,6 +14,7 @@ import {
 import * as api from "@/lib/api";
 import { ApiError } from "@/lib/api";
 import { useI18n, narratorLanguage } from "@/lib/i18n";
+import { useAutoResize } from "@/lib/useAutoResize";
 import type {
   ExperimentDraft,
   ResourceKind,
@@ -165,24 +166,6 @@ function DraftEditor({
   busy: boolean;
 }) {
   const { t } = useI18n();
-  const field = (
-    key: keyof ExperimentDraft,
-    label: string,
-    hint?: string,
-  ) => (
-    <label className="block">
-      <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-wide text-ink-400">
-        {label}
-      </span>
-      <textarea
-        value={draft[key]}
-        onChange={(e) => onChange({ ...draft, [key]: e.target.value })}
-        rows={2}
-        className="field-input w-full resize-y"
-      />
-      {hint && <span className="mt-1 block text-[11px] text-ink-500">{hint}</span>}
-    </label>
-  );
 
   return (
     <div className="mt-3 rounded-2xl bg-brand-indigo/[0.06] p-3.5">
@@ -193,9 +176,22 @@ function DraftEditor({
         {t("sugg.draftNote")}
       </p>
       <div className="space-y-2.5">
-        {field("design", t("sugg.design.label"))}
-        {field("success_criterion", t("sugg.success.label"))}
-        {field("failure_criterion", t("sugg.failure.label"), t("sugg.failureNote"))}
+        <AutoField
+          label={t("sugg.design.label")}
+          value={draft.design}
+          onChange={(v) => onChange({ ...draft, design: v })}
+        />
+        <AutoField
+          label={t("sugg.success.label")}
+          value={draft.success_criterion}
+          onChange={(v) => onChange({ ...draft, success_criterion: v })}
+        />
+        <AutoField
+          label={t("sugg.failure.label")}
+          hint={t("sugg.failureNote")}
+          value={draft.failure_criterion}
+          onChange={(v) => onChange({ ...draft, failure_criterion: v })}
+        />
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
         <button
@@ -215,6 +211,37 @@ function DraftEditor({
         </button>
       </div>
     </div>
+  );
+}
+
+// Editable draft field that grows to fit its content — no inner scrollbox, so
+// the whole experiment reads at a glance. min-height keeps short text roomy.
+function AutoField({
+  label,
+  value,
+  hint,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  onChange: (v: string) => void;
+}) {
+  const ref = useAutoResize<HTMLTextAreaElement>(value);
+  return (
+    <label className="block">
+      <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-wide text-ink-400">
+        {label}
+      </span>
+      <textarea
+        ref={ref}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="field-input w-full resize-none overflow-hidden leading-relaxed"
+        style={{ minHeight: "5rem" }}
+      />
+      {hint && <span className="mt-1 block text-[11px] text-ink-500">{hint}</span>}
+    </label>
   );
 }
 

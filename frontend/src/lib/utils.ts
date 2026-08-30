@@ -31,15 +31,26 @@ export function formatDate(ts: string | undefined | null): string {
  * Render a short, readable snippet of an evidence content JSON string.
  * The content arrives as a JSON string; we pretty-flatten the top-level
  * fields for a one-line preview and truncate.
+ *
+ * `localize` is an optional presentation-only mapper applied to each string
+ * value (used to display known seed fixtures in the active locale). It never
+ * changes the stored content — only what is rendered.
  */
-export function contentSnippet(content: string, max = 140): string {
+export function contentSnippet(
+  content: string,
+  max = 140,
+  localize?: (s: string) => string,
+): string {
   if (!content) return "—";
-  let text = content;
+  const loc = localize ?? ((s: string) => s);
+  let text = loc(content);
   try {
     const obj = JSON.parse(content);
     if (obj && typeof obj === "object") {
       text = Object.entries(obj)
-        .map(([k, v]) => `${k}: ${typeof v === "object" ? JSON.stringify(v) : String(v)}`)
+        .map(([k, v]) =>
+          `${k}: ${typeof v === "object" ? JSON.stringify(v) : loc(String(v))}`,
+        )
         .join(" · ");
     }
   } catch {

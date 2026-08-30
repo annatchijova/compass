@@ -4,6 +4,7 @@ import { Target, Compass } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { CapabilitySuggestions } from "@/components/CapabilitySuggestions";
 import { clampIndex } from "@/lib/utils";
+import { localizeSeed } from "@/lib/seedI18n";
 import type {
   FitState,
   TrajectoryFitResponse,
@@ -98,16 +99,19 @@ function RequirementRow({
   req: TrajectoryRequirement;
   onChanged: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   return (
     <div className="card-solid rounded-2xl p-3.5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        {/* Label and hypothesis statement are user-authored — rendered as-is */}
-        <p className="min-w-0 flex-1 text-[13px] font-bold text-ink-900">{req.label}</p>
+        {/* Label and hypothesis statement are user-authored; seed fixtures are
+            localized for display only. */}
+        <p className="min-w-0 flex-1 text-[13px] font-bold text-ink-900">
+          {localizeSeed(req.label, lang)}
+        </p>
         <FitChip fit={req.fit} />
       </div>
       <p className="mt-1.5 text-[12.5px] leading-relaxed text-ink-600">
-        {req.hypothesis_statement}
+        {localizeSeed(req.hypothesis_statement, lang)}
       </p>
       <div className="mt-2 flex items-center gap-2 text-[11px] text-ink-400">
         <span className="font-mono">
@@ -136,19 +140,19 @@ export function TrajectoryFit({
   fit: TrajectoryFitResponse;
   onChanged: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   return (
     <div className="space-y-4">
       <div>
         <div className="flex items-center gap-2">
           <Compass className="h-4 w-4 shrink-0 text-brand-indigo" />
           <h3 className="font-display text-[15px] font-extrabold tracking-tight text-ink-900">
-            {fit.trajectory.name}
+            {localizeSeed(fit.trajectory.name, lang)}
           </h3>
         </div>
         {fit.trajectory.description && (
           <p className="mt-1 text-[12.5px] leading-relaxed text-ink-600">
-            {fit.trajectory.description}
+            {localizeSeed(fit.trajectory.description, lang)}
           </p>
         )}
       </div>

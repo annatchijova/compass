@@ -22,6 +22,8 @@ import type {
   Prompt,
 } from "@/lib/types";
 import { shortHash, contentSnippet } from "@/lib/utils";
+import { useAutoResize } from "@/lib/useAutoResize";
+import { localizeSeed } from "@/lib/seedI18n";
 import { CompassIdControl } from "@/components/CompassIdControl";
 import { LanguageToggle } from "@/components/LanguageToggle";
 
@@ -147,7 +149,7 @@ function NextStepHero({
   validatingId: number | string | null;
   onChanged: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const sentence = nextStepSentence(t, next);
 
   // When the step points at a specific hypothesis, show its statement so the
@@ -167,10 +169,11 @@ function NextStepHero({
         {sentence}
       </p>
 
-      {/* The referenced hypothesis, in quotes — statement is API-authored. */}
+      {/* The referenced hypothesis, in quotes — statement is API-authored;
+          seed fixtures are localized for display only. */}
       {referenced && (
         <p className="mx-auto mt-3 max-w-xl text-[14px] italic leading-relaxed text-ink-500">
-          “{referenced.statement}”
+          “{localizeSeed(referenced.statement, lang)}”
         </p>
       )}
 
@@ -392,16 +395,20 @@ function DraftField({
   value: string;
   onChange: (v: string) => void;
 }) {
+  // Grow to fit the whole experiment text — no inner scrollbox, so the person
+  // reads it all at a glance. min-height keeps a short draft comfortable.
+  const ref = useAutoResize<HTMLTextAreaElement>(value);
   return (
-    <label className="mb-2.5 block">
+    <label className="mb-3 block">
       <span className="mb-1 block text-[10.5px] font-bold uppercase tracking-wide text-ink-400">
         {label}
       </span>
       <textarea
+        ref={ref}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        rows={2}
-        className="field-input w-full resize-y"
+        className="field-input w-full resize-none overflow-hidden leading-relaxed"
+        style={{ minHeight: "5.5rem" }}
       />
     </label>
   );

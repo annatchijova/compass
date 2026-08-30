@@ -194,7 +194,7 @@ const dict = {
     "nextStep.validar_evidencia":
       "{count} evidence candidate(s) await validation: review, edit, or reject them.",
     "nextStep.disenar_experimento":
-      "Design a discriminating experiment for hypothesis #{id}: it is the active one with the least evidence.",
+      "Design an experiment to test the explanation that still has the least evidence — the alternative, not the comfortable one.",
     "nextStep.abstain":
       "No computable next step under the v0 rules: record evidence or a hypothesis.",
 
@@ -586,7 +586,7 @@ const dict = {
     "nextStep.validar_evidencia":
       "{count} candidato(s) de evidencia esperan validación: revisalos, editalos o rechazalos.",
     "nextStep.disenar_experimento":
-      "Diseñá un experimento discriminante para la hipótesis #{id}: es la activa con menos evidencia.",
+      "Diseñá un experimento para poner a prueba la explicación que todavía tiene menos evidencia — la alternativa, no la cómoda.",
     "nextStep.abstain":
       "No hay paso siguiente computable bajo las reglas v0: registrá evidencia o una hipótesis.",
 

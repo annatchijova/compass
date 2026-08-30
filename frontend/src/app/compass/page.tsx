@@ -36,6 +36,7 @@ import type {
   NarrateResponse,
 } from "@/lib/types";
 import { shortHash, contentSnippet, formatDate } from "@/lib/utils";
+import { localizeSeed } from "@/lib/seedI18n";
 import { StatusChip, statusIsStruck } from "@/components/StatusChip";
 import { IndexGauge } from "@/components/IndexGauge";
 import { AuditChain } from "@/components/AuditChain";
@@ -411,7 +412,7 @@ function EvidenceRow({
   onValidate: () => void;
   validating: boolean;
 }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const pending = ev.validated !== 1;
   // Evidence type is a fixed enum → localized label; content is API-authored.
   const typeLabel = t(`evidenceType.${ev.evidence_type}` as never) || ev.evidence_type;
@@ -424,7 +425,7 @@ function EvidenceRow({
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-[12.5px] leading-snug text-ink-700">
-          {contentSnippet(ev.content)}
+          {contentSnippet(ev.content, 140, (str) => localizeSeed(str, lang))}
         </p>
         <p className="mt-0.5 text-[11px] text-ink-400">
           {ev.source} · {formatDate(ev.created_at)}
@@ -673,7 +674,7 @@ function HypothesesPanel({
   revision: number;
   onAdded: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [statement, setStatement] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -744,13 +745,14 @@ function HypothesesPanel({
                   </span>
                 )}
               </div>
-              {/* Hypothesis statement is user/API-authored — rendered as-is */}
+              {/* Hypothesis statement is user/API-authored; seed fixtures are
+                  localized for display only (nothing written back is changed). */}
               <p
                 className={`mt-3 text-[13.5px] leading-relaxed text-ink-700 ${
                   statusIsStruck(h.status) ? "line-through opacity-60" : ""
                 }`}
               >
-                {h.statement}
+                {localizeSeed(h.statement, lang)}
               </p>
               <div className="mt-3 border-t border-ink-900/5 pt-3">
                 <IndexGauge index={h.index} status={h.status} />

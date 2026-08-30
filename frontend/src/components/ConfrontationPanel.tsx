@@ -2,6 +2,7 @@
 
 import { AlertCircle, Scale } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
+import { localizeSeed } from "@/lib/seedI18n";
 import { Panel } from "@/components/Panel";
 import type { Confrontation, ConfrontationsResponse } from "@/lib/types";
 
@@ -67,7 +68,7 @@ export function ConfrontationPanel({
 }
 
 function Discrepancy({ c }: { c: Confrontation }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   // The only variable part is the counts. The wording is ours, not a model's.
   const sentence =
     c.kind === "record_exceeds_self"
@@ -82,14 +83,18 @@ function Discrepancy({ c }: { c: Confrontation }) {
 
   return (
     <div className="rounded-2xl bg-status-activaBg p-3.5">
-      {/* The hypothesis statement is the person's own words, rendered as-is */}
-      <p className="text-[13px] font-bold text-ink-900">{c.hypothesis_statement}</p>
+      {/* The hypothesis statement is the person's own words; seed fixtures are
+          localized for display only. */}
+      <p className="text-[13px] font-bold text-ink-900">
+        {localizeSeed(c.hypothesis_statement, lang)}
+      </p>
       <p className="mt-1.5 text-[12.5px] leading-relaxed text-ink-700">{sentence}</p>
       <p className="mt-2 text-[11.5px] leading-relaxed text-ink-500">
         {t("conf.notAVerdict")}
       </p>
       <p className="mt-2 font-mono text-[10.5px] text-ink-400">
-        hypothesis #{c.hypothesis_id} · {c.index ?? "—"}/1000 ·{" "}
+        {t("traj.req.backedBy", { id: String(c.hypothesis_id) })} ·{" "}
+        {c.index ?? "—"}/1000 ·{" "}
         {t("conf.evidenceTypes", { n: c.distinct_types })}
       </p>
     </div>

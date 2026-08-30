@@ -13,6 +13,7 @@ import {
 import * as api from "@/lib/api";
 import { ApiError } from "@/lib/api";
 import { useI18n, narratorLanguage } from "@/lib/i18n";
+import { localizeSeed } from "@/lib/seedI18n";
 import { Panel, Empty, ExampleChips } from "@/components/Panel";
 import { TrajectoryFit, FitChip } from "@/components/TrajectoryFit";
 import { OccupationPicker } from "@/components/OccupationPicker";
@@ -48,7 +49,7 @@ export function TrajectoriesPanel({
       experiment), so the dashboard can refetch its sealed state. */
   onChanged: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [trajectories, setTrajectories] = useState<Trajectory[] | null>(null);
   // A requirement must be backable by a LATENT capability — that is the whole
   // point: you plan a path around what you have not proven yet. The sealed
@@ -197,7 +198,7 @@ export function TrajectoriesPanel({
             >
               {trajectories.map((tr) => (
                 <option key={tr.id} value={String(tr.id)}>
-                  {tr.name}
+                  {localizeSeed(tr.name, lang)}
                 </option>
               ))}
             </select>
@@ -315,7 +316,7 @@ function RequirementForm({
   busy: boolean;
   onAdd: (label: string, hypothesisId: string) => void;
 }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [label, setLabel] = useState("");
   const [hypothesisId, setHypothesisId] = useState("");
 
@@ -374,7 +375,7 @@ function RequirementForm({
           >
             {available.map((h) => (
               <option key={h.id} value={String(h.id)}>
-                #{h.id} — {h.statement}
+                #{h.id} — {localizeSeed(h.statement, lang)}
               </option>
             ))}
           </select>
@@ -403,7 +404,7 @@ function RequirementForm({
  * view only displays it.
  */
 function DiscriminatePanel({ trajectories }: { trajectories: Trajectory[] }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [a, setA] = useState(String(trajectories[0]?.id ?? ""));
   const [b, setB] = useState(String(trajectories[1]?.id ?? ""));
   const [result, setResult] = useState<DiscriminateResponse | null>(null);
@@ -411,7 +412,10 @@ function DiscriminatePanel({ trajectories }: { trajectories: Trajectory[] }) {
   const [err, setErr] = useState<string | null>(null);
 
   const nameOf = (side: "a" | "b") =>
-    side === "a" ? result?.trajectory_a.name ?? "" : result?.trajectory_b.name ?? "";
+    localizeSeed(
+      side === "a" ? result?.trajectory_a.name ?? "" : result?.trajectory_b.name ?? "",
+      lang,
+    );
 
   const run = async () => {
     setBusy(true);
@@ -448,7 +452,7 @@ function DiscriminatePanel({ trajectories }: { trajectories: Trajectory[] }) {
         >
           {trajectories.map((tr) => (
             <option key={tr.id} value={String(tr.id)}>
-              {tr.name}
+              {localizeSeed(tr.name, lang)}
             </option>
           ))}
         </select>
@@ -459,7 +463,7 @@ function DiscriminatePanel({ trajectories }: { trajectories: Trajectory[] }) {
         >
           {trajectories.map((tr) => (
             <option key={tr.id} value={String(tr.id)}>
-              {tr.name}
+              {localizeSeed(tr.name, lang)}
             </option>
           ))}
         </select>
@@ -495,7 +499,7 @@ function DiscriminatePanel({ trajectories }: { trajectories: Trajectory[] }) {
                 {t("traj.disc.suggested")}
               </p>
               <p className="mt-1 text-[13.5px] font-bold text-ink-900">
-                {result.suggested_experiment_target.label}
+                {localizeSeed(result.suggested_experiment_target.label, lang)}
               </p>
               <p className="mt-1 text-[12px] text-ink-600">
                 {t("traj.disc.onlyIn", {
@@ -523,7 +527,7 @@ function DiscriminatePanel({ trajectories }: { trajectories: Trajectory[] }) {
                     className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-ink-900/[0.02] px-3 py-2"
                   >
                     <span className="min-w-0 flex-1 text-[12.5px] text-ink-700">
-                      {d.label}
+                      {localizeSeed(d.label, lang)}
                     </span>
                     <span className="text-[11px] text-ink-400">
                       {t("traj.disc.onlyIn", { name: nameOf(d.only_in) })}

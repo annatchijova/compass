@@ -6,6 +6,17 @@
 
 **Figure out what to lean into — from evidence of your own life, not a personality quiz.**
 
+## Proof it runs on Google Cloud
+
+Deployed on **Cloud Run**, powered by **Vertex AI (Gemini 3.5)** — live in the
+Google Cloud Console, not a mockup.
+
+<p align="center">
+  <img src="visual/compass.png" alt="COMPASS on Google Cloud" width="300">
+  <img src="visual/compass2.png" alt="COMPASS on Google Cloud" width="300">
+  <img src="visual/compass3.png" alt="COMPASS on Google Cloud" width="300">
+</p>
+
 Most people don't really know what to dedicate themselves to. The tools that
 promise to help just hand you a confident label from a ten-question quiz —
 *"you're an ENFP"*, *"spatial reasoning: 68%"* — with nothing real behind it,

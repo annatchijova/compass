@@ -35,7 +35,9 @@ export function ViewToggle({
             onClick={() => onChange(o.value)}
             aria-pressed={active}
             className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold transition ${
-              active ? "brand-gradient text-white shadow-sm" : "text-ink-400 hover:text-ink-700"
+              active
+                ? "bg-brand-mustard text-ink-900 shadow-sm"
+                : "text-ink-400 hover:text-ink-700"
             }`}
           >
             <Icon className="h-3.5 w-3.5" />

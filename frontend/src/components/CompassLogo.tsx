@@ -3,8 +3,8 @@ export function CompassLogo({ className = "h-8 w-8" }: { className?: string }) {
     <svg viewBox="0 0 48 48" className={className} role="img" aria-label="COMPASS">
       <defs>
         <linearGradient id="compass-g" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#22D3EE" />
-          <stop offset="100%" stopColor="#6366F1" />
+          <stop offset="0%" stopColor="#1C8296" />
+          <stop offset="100%" stopColor="#0F5563" />
         </linearGradient>
       </defs>
       {/* outer ring — the bezel */}

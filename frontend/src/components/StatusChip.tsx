@@ -13,27 +13,27 @@ const STATUS_STYLE: Record<
   corroborada: {
     bg: "bg-status-corroboradaBg",
     text: "text-status-corroborada",
-    dot: "#4F46E5",
+    dot: "#0F5563",
   },
   activa: {
     bg: "bg-status-activaBg",
     text: "text-status-activa",
-    dot: "#0891B2",
+    dot: "#C6971C",
   },
   latente: {
     bg: "bg-status-latenteBg",
     text: "text-status-latente",
-    dot: "#5B6B84",
+    dot: "#5C666E",
   },
   debilitada: {
     bg: "bg-status-debilitadaBg",
     text: "text-status-debilitada",
-    dot: "#B45309",
+    dot: "#A65A2A",
   },
   descartada: {
     bg: "bg-status-descartadaBg",
     text: "text-status-descartada",
-    dot: "#64748B",
+    dot: "#727C84",
     strike: true,
   },
 };

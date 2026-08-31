@@ -37,11 +37,11 @@ const RESOLVED: FitState[] = ["met", "against", "discarded"];
 // met←corroborada, supported←activa, open←latente, against←debilitada,
 // discarded←descartada. UI chrome only — never a computed value.
 const FIT_STYLE: Record<FitState, { bg: string; text: string; dot: string }> = {
-  met: { bg: "bg-status-corroboradaBg", text: "text-status-corroborada", dot: "#4F46E5" },
-  supported: { bg: "bg-status-activaBg", text: "text-status-activa", dot: "#0891B2" },
-  open: { bg: "bg-status-latenteBg", text: "text-status-latente", dot: "#5B6B84" },
-  against: { bg: "bg-status-debilitadaBg", text: "text-status-debilitada", dot: "#B45309" },
-  discarded: { bg: "bg-status-descartadaBg", text: "text-status-descartada", dot: "#64748B" },
+  met: { bg: "bg-status-corroboradaBg", text: "text-status-corroborada", dot: "#0F5563" },
+  supported: { bg: "bg-status-activaBg", text: "text-status-activa", dot: "#C6971C" },
+  open: { bg: "bg-status-latenteBg", text: "text-status-latente", dot: "#5C666E" },
+  against: { bg: "bg-status-debilitadaBg", text: "text-status-debilitada", dot: "#A65A2A" },
+  discarded: { bg: "bg-status-descartadaBg", text: "text-status-descartada", dot: "#727C84" },
 };
 
 export function FitChip({ fit }: { fit: FitState }) {

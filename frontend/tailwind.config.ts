@@ -9,34 +9,40 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // COMPASS palette — reused verbatim from VELO's design language
-        // (glass, ink scale, cyan->indigo brand gradient, soft shadows).
-        canvas: "#F6F8FB",
+        // COMPASS palette — azul petróleo (petrol) + mostaza (mustard) + gris.
+        // Petrol is the dominant brand color, mustard the single warm accent,
+        // gray the neutral system. Token NAMES are kept from the prior
+        // cyan/indigo/ink scheme so components recolor automatically.
+        canvas: "#F4F5F6",
         surface: "#FFFFFF",
         ink: {
-          900: "#0B1220",
-          700: "#1E2A44",
-          500: "#5B6B84",
-          400: "#8494A8",
+          900: "#15191D",
+          700: "#2C333A",
+          500: "#5C666E",
+          400: "#8B949C",
         },
         brand: {
-          cyan: "#22D3EE",
-          indigo: "#6366F1",
-          deep: "#4F46E5",
+          // Petrol family (was cyan->indigo->deep).
+          cyan: "#1C8296", // bright petrol — light end of gradients
+          indigo: "#0F5563", // primary petrol
+          deep: "#0C3B45", // deep petrol
+          // Mustard accent.
+          mustard: "#C6971C",
+          mustardBright: "#DDB03A",
+          mustardBg: "#FBF3DA",
         },
-        // Hypothesis-status tiers (color per status, adapted from VELO's
-        // verdict tiers). These are UI chrome only — never a computed value.
+        // Hypothesis-status tiers. UI chrome only — never a computed value.
         status: {
-          corroborada: "#4F46E5",
-          corroboradaBg: "#EEF0FF",
-          activa: "#0891B2",
-          activaBg: "#ECFEFF",
-          latente: "#5B6B84",
-          latenteBg: "#F1F5F9",
-          debilitada: "#B45309",
-          debilitadaBg: "#FFFBEB",
-          descartada: "#64748B",
-          descartadaBg: "#F1F5F9",
+          corroborada: "#0F5563", // petrol
+          corroboradaBg: "#E6F0F2",
+          activa: "#C6971C", // mustard
+          activaBg: "#FBF3DA",
+          latente: "#5C666E", // gray
+          latenteBg: "#F1F2F3",
+          debilitada: "#A65A2A", // muted terracotta ("weakened")
+          debilitadaBg: "#F7EEE8",
+          descartada: "#727C84", // gray
+          descartadaBg: "#F1F2F3",
         },
       },
       fontFamily: {
@@ -48,9 +54,9 @@ const config: Config = {
         "3xl": "1.5rem",
       },
       boxShadow: {
-        soft: "0 1px 2px rgba(11,18,32,0.04), 0 8px 24px rgba(11,18,32,0.06)",
-        lift: "0 2px 6px rgba(11,18,32,0.05), 0 18px 40px rgba(11,18,32,0.10)",
-        glow: "0 0 0 1px rgba(99,102,241,0.16), 0 12px 28px rgba(99,102,241,0.16)",
+        soft: "0 1px 2px rgba(21,25,29,0.04), 0 8px 24px rgba(21,25,29,0.06)",
+        lift: "0 2px 6px rgba(21,25,29,0.05), 0 18px 40px rgba(21,25,29,0.10)",
+        glow: "0 0 0 1px rgba(15,85,99,0.16), 0 12px 28px rgba(15,85,99,0.16)",
       },
       keyframes: {
         "fade-up": {

@@ -394,7 +394,8 @@ function NextStepCard({ next }: { next: NextStep }) {
   const sentence = nextStepSentence(t, next);
   return (
     <div className="animate-fade-up shadow-glow glass mt-6 flex items-start gap-4 rounded-3xl p-6">
-      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl brand-gradient text-white">
+      {/* Mustard accent on the primary next-step CTA (dark ink on mustard). */}
+      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand-mustard text-ink-900">
         <Icon className="h-6 w-6" />
       </span>
       <div className="min-w-0">

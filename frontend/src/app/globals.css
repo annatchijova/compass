@@ -3,21 +3,23 @@
 @tailwind utilities;
 
 /* ─────────────────────────────────────────────────────────────
-   COMPASS design system — reused verbatim from the VELO design
-   language (glass panels, ink scale, cyan->indigo brand gradient,
-   soft shadows, fade-up animations).
+   COMPASS design system — azul petróleo (petrol) + mostaza
+   (mustard) + gris (gray). Petrol dominant, mustard the warm
+   accent, gray the neutral canvas. Glass panels, soft shadows,
+   fade-up animations.
    ───────────────────────────────────────────────────────────── */
 
 :root {
-  --bg: #f6f8fb;
+  --bg: #f4f5f6;
   --surface: #ffffff;
-  --ink-900: #0b1220;
-  --ink-700: #1e2a44;
-  --ink-500: #5b6b84;
-  --ink-400: #8494a8;
-  --brand-cyan: #22d3ee;
-  --brand-indigo: #6366f1;
-  --brand-deep: #4f46e5;
+  --ink-900: #15191d;
+  --ink-700: #2c333a;
+  --ink-500: #5c666e;
+  --ink-400: #8b949c;
+  --brand-cyan: #1c8296; /* bright petrol */
+  --brand-indigo: #0f5563; /* primary petrol */
+  --brand-deep: #0c3b45; /* deep petrol */
+  --brand-mustard: #c6971c; /* warm accent */
 }
 
 html {
@@ -47,9 +49,9 @@ p {
 
 .app-bg {
   background:
-    radial-gradient(1100px 520px at 12% -8%, rgba(34, 211, 238, 0.1), transparent 62%),
-    radial-gradient(860px 460px at 100% 0%, rgba(99, 102, 241, 0.09), transparent 58%),
-    linear-gradient(180deg, #f9fafc 0%, #f6f8fb 100%);
+    radial-gradient(1100px 520px at 12% -8%, rgba(28, 130, 150, 0.1), transparent 62%),
+    radial-gradient(860px 460px at 100% 0%, rgba(198, 151, 28, 0.09), transparent 58%),
+    linear-gradient(180deg, #f8f9fa 0%, #f4f5f6 100%);
   min-height: 100vh;
 }
 
@@ -57,17 +59,17 @@ p {
   background: rgba(255, 255, 255, 0.74);
   backdrop-filter: blur(14px) saturate(140%);
   -webkit-backdrop-filter: blur(14px) saturate(140%);
-  border: 1px solid rgba(11, 18, 32, 0.06);
+  border: 1px solid rgba(21, 25, 29, 0.06);
 }
 .glass-subtle {
   background: rgba(255, 255, 255, 0.58);
   backdrop-filter: blur(10px) saturate(130%);
   -webkit-backdrop-filter: blur(10px) saturate(130%);
-  border: 1px solid rgba(11, 18, 32, 0.05);
+  border: 1px solid rgba(21, 25, 29, 0.05);
 }
 .card-solid {
   background: #fff;
-  border: 1px solid rgba(11, 18, 32, 0.07);
+  border: 1px solid rgba(21, 25, 29, 0.07);
 }
 .card-hover {
   transition: transform 0.22s cubic-bezier(0.23, 1, 0.32, 1), box-shadow 0.22s,
@@ -75,8 +77,8 @@ p {
 }
 .card-hover:hover {
   transform: translateY(-4px);
-  box-shadow: 0 4px 10px rgba(11, 18, 32, 0.06), 0 20px 44px rgba(11, 18, 32, 0.1);
-  border-color: rgba(99, 102, 241, 0.16);
+  box-shadow: 0 4px 10px rgba(21, 25, 29, 0.06), 0 20px 44px rgba(21, 25, 29, 0.1);
+  border-color: rgba(15, 85, 99, 0.16);
 }
 .card-hover:active {
   transform: translateY(-1px);
@@ -93,7 +95,7 @@ p {
 }
 
 .btn-primary {
-  background: linear-gradient(92deg, #0ea5e9 0%, #6366f1 100%);
+  background: linear-gradient(92deg, #1c8296 0%, #0c3b45 100%);
   color: #fff;
   border: none;
   cursor: pointer;
@@ -103,7 +105,7 @@ p {
 .btn-primary:hover {
   filter: brightness(1.04);
   transform: translateY(-1px);
-  box-shadow: 0 8px 20px rgba(79, 70, 229, 0.24);
+  box-shadow: 0 8px 20px rgba(15, 85, 99, 0.24);
 }
 .btn-primary:active {
   transform: translateY(0);
@@ -119,13 +121,13 @@ p {
 
 .btn-ghost {
   background: #fff;
-  border: 1px solid rgba(11, 18, 32, 0.1);
+  border: 1px solid rgba(21, 25, 29, 0.1);
   color: var(--ink-700);
   transition: border-color 0.15s, background 0.15s, transform 0.15s;
 }
 .btn-ghost:hover {
-  border-color: rgba(11, 18, 32, 0.18);
-  background: rgba(11, 18, 32, 0.02);
+  border-color: rgba(21, 25, 29, 0.18);
+  background: rgba(21, 25, 29, 0.02);
   transform: translateY(-1px);
 }
 .btn-ghost:active {
@@ -138,13 +140,13 @@ p {
 }
 
 .shadow-soft {
-  box-shadow: 0 1px 2px rgba(11, 18, 32, 0.04), 0 8px 24px rgba(11, 18, 32, 0.06);
+  box-shadow: 0 1px 2px rgba(21, 25, 29, 0.04), 0 8px 24px rgba(21, 25, 29, 0.06);
 }
 .shadow-lift {
-  box-shadow: 0 2px 6px rgba(11, 18, 32, 0.05), 0 18px 40px rgba(11, 18, 32, 0.1);
+  box-shadow: 0 2px 6px rgba(21, 25, 29, 0.05), 0 18px 40px rgba(21, 25, 29, 0.1);
 }
 .shadow-glow {
-  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.16), 0 12px 28px rgba(99, 102, 241, 0.16);
+  box-shadow: 0 0 0 1px rgba(15, 85, 99, 0.16), 0 12px 28px rgba(15, 85, 99, 0.16);
 }
 
 .nav-glass {
@@ -156,37 +158,37 @@ p {
   backdrop-filter: blur(14px) saturate(140%);
   -webkit-backdrop-filter: blur(14px) saturate(140%);
   background: rgba(255, 255, 255, 0.78);
-  border-bottom: 1px solid rgba(11, 18, 32, 0.06);
+  border-bottom: 1px solid rgba(21, 25, 29, 0.06);
 }
 
 .field-input {
   width: 100%;
   border-radius: 12px;
-  border: 1px solid rgba(11, 18, 32, 0.12);
+  border: 1px solid rgba(21, 25, 29, 0.12);
   background: rgba(255, 255, 255, 0.92);
   padding: 0.68rem 0.75rem;
   font-size: 0.875rem;
-  color: #0b1220;
+  color: #15191d;
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
 }
 .field-input:hover {
-  border-color: rgba(11, 18, 32, 0.18);
+  border-color: rgba(21, 25, 29, 0.18);
   background: #fff;
 }
 .field-input:focus {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  border-color: #0f5563;
+  box-shadow: 0 0 0 3px rgba(15, 85, 99, 0.15);
   background: #fff;
 }
 .field-input::placeholder {
-  color: #8494a8;
+  color: #8b949c;
 }
 
 .skeleton {
   position: relative;
   overflow: hidden;
-  background: rgba(11, 18, 32, 0.06);
+  background: rgba(21, 25, 29, 0.06);
 }
 .skeleton::after {
   content: "";
@@ -222,7 +224,7 @@ p {
   z-index: 100;
   padding: 8px 12px;
   border-radius: 999px;
-  background: #0b1220;
+  background: #15191d;
   color: #fff;
   font-size: 13px;
   font-weight: 700;

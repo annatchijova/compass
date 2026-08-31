@@ -45,7 +45,7 @@ export function IndexGauge({
             cy="100"
             r={R}
             fill="none"
-            stroke="rgba(11,18,32,0.07)"
+            stroke="rgba(21,25,29,0.07)"
             strokeWidth="14"
           />
           {!isNull && (

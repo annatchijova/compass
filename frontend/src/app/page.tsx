@@ -51,7 +51,7 @@ export default function LandingPage() {
         <div>
           <div className="animate-fade-up inline-flex items-center gap-2 rounded-full border border-ink-900/8 bg-white px-2 py-1 pl-3 shadow-soft">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-indigo/10 px-2.5 py-1 text-[11.5px] font-bold text-brand-deep">
-              <span className="h-1.5 w-1.5 rounded-full bg-brand-indigo shadow-[0_0_0_4px_rgba(99,102,241,0.16)]" />
+              <span className="h-1.5 w-1.5 rounded-full bg-brand-indigo shadow-[0_0_0_4px_rgba(15,85,99,0.16)]" />
               {t("landing.badge")}
             </span>
           </div>
@@ -195,7 +195,7 @@ function HeroDial() {
     <div className="glass shadow-lift mx-auto flex max-w-[420px] flex-col items-center rounded-3xl p-8">
       <div className="relative h-[220px] w-[220px]">
         <svg viewBox="0 0 200 200" className="h-full w-full -rotate-90">
-          <circle cx="100" cy="100" r={R} fill="none" stroke="rgba(11,18,32,0.07)" strokeWidth="14" />
+          <circle cx="100" cy="100" r={R} fill="none" stroke="rgba(21,25,29,0.07)" strokeWidth="14" />
           <circle
             cx="100"
             cy="100"
@@ -209,8 +209,8 @@ function HeroDial() {
           />
           <defs>
             <linearGradient id="hero-dial-g" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="#22D3EE" />
-              <stop offset="100%" stopColor="#6366F1" />
+              <stop offset="0%" stopColor="#1C8296" />
+              <stop offset="100%" stopColor="#0F5563" />
             </linearGradient>
           </defs>
         </svg>

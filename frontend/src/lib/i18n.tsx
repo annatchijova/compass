@@ -426,7 +426,7 @@ const dict = {
     "landing.title1": "Evidencia, no adulación.",
     "landing.title2": "Una brújula, no un espejo.",
     "landing.subtitle":
-      "COMPASS es un socio de navegación regido por dos invariantes: ninguna afirmación sobre vos existe sin evidencia sellada, y ningún número que te describe sale jamás de un modelo de lenguaje. Un motor determinista calcula y sella cada índice antes de que cualquier modelo pueda hablar.",
+      "COMPASS es un socio de navegación regido por dos invariantes: ninguna afirmación sobre vos existe sin evidencia sellada, y ningún número que te describe sale jamás de un modelo de lenguaje. Un motor determinista calcula y sella cada índice antes de que cualquier modelo pueda hablar. Y no espera a que le preguntes: un Autopilot autónomo corre el mismo equipo de agentes en segundo plano — redacta tu próximo experimento, busca cómo ejecutarlo y vigila el ledger mientras dormís — sin mover jamás un solo número sellado.",
     "landing.cta": "Abrir el dashboard",
     "landing.ctaSecondary": "Cómo funciona",
 

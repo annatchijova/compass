@@ -440,6 +440,6 @@ order does not change the index.
 
 ## License
 
-Copyright 2026 Olga Vasilieva.
+Copyright 2026 Olga Vasilieva and Anna Tchijova.
 
 Licensed under [Apache-2.0](LICENSE).

@@ -53,7 +53,7 @@ gcloud run deploy compass \
   --session-affinity --min-instances 1 --max-instances 4 \
   --set-env-vars COMPASS_BACKEND=gemini,GOOGLE_GENAI_USE_VERTEXAI=TRUE,\
 GOOGLE_CLOUD_PROJECT=vigia-497422,GOOGLE_CLOUD_LOCATION=global,\
-COMPASS_MODEL=gemini-2.5-flash,COMPASS_GCS_BUCKET=compass-user-data-vigia-497422 \
+COMPASS_MODEL=gemini-3.5-flash,COMPASS_GCS_BUCKET=compass-user-data-vigia-497422 \
   --project vigia-497422
 ```
 
@@ -144,7 +144,7 @@ gcloud run deploy compass-agent \
   --image gcr.io/vigia-497422/compass-agent \
   --project vigia-497422 --region us-central1 \
   --allow-unauthenticated --memory 1Gi --timeout 300 \
-  --set-env-vars GOOGLE_GENAI_USE_VERTEXAI=TRUE,GOOGLE_CLOUD_PROJECT=vigia-497422,GOOGLE_CLOUD_LOCATION=global,COMPASS_BACKEND=gemini,COMPASS_MODEL=gemini-2.5-flash,COMPASS_DB=/tmp/compass.db
+  --set-env-vars GOOGLE_GENAI_USE_VERTEXAI=TRUE,GOOGLE_CLOUD_PROJECT=vigia-497422,GOOGLE_CLOUD_LOCATION=global,COMPASS_BACKEND=gemini,COMPASS_MODEL=gemini-3.5-flash,COMPASS_DB=/tmp/compass.db
 ```
 
 The ADK Web UI is a development surface: fine for the demo, but it is not the

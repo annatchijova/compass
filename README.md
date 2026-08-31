@@ -18,6 +18,19 @@ of a verdict about who you are, it keeps rival explanations about a capability
 alive, proposes a concrete experiment that would tell them apart, you run it in
 your real life, and a sealed, auditable engine — never an AI — moves the number.
 
+**And it doesn't wait for you to ask.** COMPASS runs an autonomous **Autopilot**
+in the background — the *same* agent team, unattended, on a schedule (a Cloud
+Run Job triggered by Cloud Scheduler). While you sleep it does the heavy
+lifting: it reads your sealed state, names the capability worth testing, drafts
+your next discriminating experiment, searches the web (Gemini + Google Search)
+for concrete ways to run it, and stands guard over the tamper-evident ledger of
+*every* user — then leaves a ready-to-act briefing waiting. You wake up to the
+work already done. Crucially, its autonomy is over the **heavy lifting, never
+over your decision**: it proposes and it watches; it never validates evidence,
+closes an experiment, or moves a single sealed number — a fail-closed guard
+raises if a run ever did. That is what "autonomous" should mean for a system
+whose output is a claim about *you*.
+
 Two invariants separate it from a personality test with a chatbot bolted on:
 
 1. **No claim about the person exists without recorded, sealed evidence.**

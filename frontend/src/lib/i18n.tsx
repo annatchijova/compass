@@ -24,7 +24,7 @@ const dict = {
     "landing.title1": "Evidence, not flattery.",
     "landing.title2": "A compass, not a mirror.",
     "landing.subtitle":
-      "COMPASS is a navigation partner bound by two invariants: no claim about you exists without sealed evidence, and no number describing you ever comes out of a language model. A deterministic engine computes and seals every index before any model is allowed to speak.",
+      "COMPASS is a navigation partner bound by two invariants: no claim about you exists without sealed evidence, and no number describing you ever comes out of a language model. A deterministic engine computes and seals every index before any model is allowed to speak. And it doesn't wait for you: an autonomous Autopilot runs the same agent team in the background — drafting your next experiment, searching for ways to run it, and guarding the ledger while you sleep — yet it never moves a single sealed number.",
     "landing.cta": "Open the dashboard",
     "landing.ctaSecondary": "How it works",
 

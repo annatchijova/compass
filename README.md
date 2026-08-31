@@ -8,21 +8,21 @@
 
 ## Proof it runs on Google Cloud
 
-Deployed on **Cloud Run**, powered by **Vertex AI (Gemini 3.5)** — live in the
-Google Cloud Console, not a mockup.
-
-<p align="center">
-  <img src="visual/compass.png" alt="COMPASS on Google Cloud" width="300">
-  <img src="visual/compass2.png" alt="COMPASS on Google Cloud" width="300">
-  <img src="visual/compass3.png" alt="COMPASS on Google Cloud" width="300">
-</p>
-
-*And the autonomous Autopilot is scheduled and green:* `compass-autopilot-cron`
+**The autonomous Autopilot is scheduled and green:** `compass-autopilot-cron`
 triggers the Autopilot Cloud Run Job daily on **Google Cloud Scheduler** —
 unattended, no errors, no human in the loop.
 
 <p align="center">
   <img src="visual/autonomo.png" alt="compass-autopilot-cron live and green on Google Cloud Scheduler" width="900">
+</p>
+
+And the app itself is deployed on **Cloud Run**, powered by **Vertex AI (Gemini
+3.5)** — live in the Google Cloud Console, not a mockup.
+
+<p align="center">
+  <img src="visual/compass.png" alt="COMPASS on Google Cloud" width="300">
+  <img src="visual/compass2.png" alt="COMPASS on Google Cloud" width="300">
+  <img src="visual/compass3.png" alt="COMPASS on Google Cloud" width="300">
 </p>
 
 Most people don't really know what to dedicate themselves to. The tools that

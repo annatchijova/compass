@@ -1,0 +1,13 @@
+# Build the COMPASS ADK agent image (context = repo root).
+#   gcloud builds submit --config deploy/agent/cloudbuild.yaml .
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - deploy/agent/Dockerfile
+      - -t
+      - gcr.io/vigia-497422/compass-agent
+      - .
+images:
+  - gcr.io/vigia-497422/compass-agent

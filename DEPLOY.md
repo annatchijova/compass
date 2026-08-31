@@ -119,12 +119,39 @@ Two things to know before turning it loose:
 **Untested live.** This path is written against `google-genai` 2.x and
 covered by a stub in the suite; no real search call has been made yet.
 
-## Deploy the ADK agent (optional, separate service)
+## Deploy the ADK agent (separate service)
+
+The multi-agent team (`compass.agent.root_agent`: a Companion orchestrating
+analyst / activity_scout / reflector) runs as its own Cloud Run service and is
+**live** at
+<https://compass-agent-1028999311218.us-central1.run.app> (ADK Web UI —
+pick `compass_companion` and chat).
+
+`adk deploy cloud_run src/compass/agent` does **not** work here: ADK copies the
+agent folder and loads it as a top-level package, but the agent uses relative
+imports into the stdlib-only core (`from .. import domain, engine, ...`), so it
+must be loaded as `compass.agent` with the whole package installed. Instead we
+build a container that installs the `compass` package and serves `adk web` over
+a thin wrapper that re-exports `root_agent` with an absolute import. All of it
+lives under `deploy/agent/` (Dockerfile, entrypoint that seeds the demo state
+on boot, and `agents/compass_companion/__init__.py`). Same Vertex config as the
+backend (`GOOGLE_CLOUD_LOCATION=global` for the gemini-2.5-flash family).
 
 ```bash
-adk deploy cloud_run src/compass/agent \
-  --project vigia-497422 --region us-central1
+# Build the image (context = repo root) and deploy.
+gcloud builds submit --config deploy/agent/cloudbuild.yaml --project vigia-497422 .
+gcloud run deploy compass-agent \
+  --image gcr.io/vigia-497422/compass-agent \
+  --project vigia-497422 --region us-central1 \
+  --allow-unauthenticated --memory 1Gi --timeout 300 \
+  --set-env-vars GOOGLE_GENAI_USE_VERTEXAI=TRUE,GOOGLE_CLOUD_PROJECT=vigia-497422,GOOGLE_CLOUD_LOCATION=global,COMPASS_BACKEND=gemini,COMPASS_MODEL=gemini-2.5-flash,COMPASS_DB=/tmp/compass.db
 ```
+
+The ADK Web UI is a development surface: fine for the demo, but it is not the
+branded COMPASS frontend, and each instance seeds its own ephemeral SQLite on
+boot (no cross-instance shared state). The architecture invariant still holds —
+every agent reads or reseals through the deterministic core; none can fabricate
+an index.
 
 ## Known considerations
 

@@ -135,7 +135,7 @@ build a container that installs the `compass` package and serves `adk web` over
 a thin wrapper that re-exports `root_agent` with an absolute import. All of it
 lives under `deploy/agent/` (Dockerfile, entrypoint that seeds the demo state
 on boot, and `agents/compass_companion/__init__.py`). Same Vertex config as the
-backend (`GOOGLE_CLOUD_LOCATION=global` for the gemini-2.5-flash family).
+backend (`GOOGLE_CLOUD_LOCATION=global` for the gemini-3.5-flash family).
 
 ```bash
 # Build the image (context = repo root) and deploy.

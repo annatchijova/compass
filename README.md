@@ -1,15 +1,18 @@
 # COMPASS
 
-**An adaptive personal-navigation partner. A compass, not a mirror.**
+**Figure out what to lean into — from evidence of your own life, not a personality quiz.**
 
-COMPASS is a vocational-orientation tool built the opposite way round from
-the usual one. Instead of asking you to rate yourself and returning a
-confident profile, it treats "what should I dedicate myself to" as a **fit
-between capabilities you have demonstrated and what a path actually
-requires** — and it makes you go find out. Each capability is a hypothesis;
-the system proposes a concrete, preregistered experiment that would
-discriminate it, you run it in your life, and the outcome moves an index
-that a deterministic engine — never a model — computes and seals.
+Most people don't really know what to dedicate themselves to. The tools that
+promise to help just hand you a confident label from a ten-question quiz —
+*"you're an ENFP"*, *"spatial reasoning: 68%"* — with nothing real behind it,
+and no idea what to actually *do* next. And they flatter you: tell the quiz what
+you want to hear and it agrees.
+
+COMPASS is the opposite — a compass, not a mirror. It helps you discover what to
+lean into from **evidence of your own life**, one small step at a time. Instead
+of a verdict about who you are, it keeps rival explanations about a capability
+alive, proposes a concrete experiment that would tell them apart, you run it in
+your real life, and a sealed, auditable engine — never an AI — moves the number.
 
 Two invariants separate it from a personality test with a chatbot bolted on:
 

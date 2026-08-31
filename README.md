@@ -79,6 +79,14 @@ Every step below is sealed and appears in the append-only audit chain:
 
 ---
 
+## Architecture
+
+<p align="center">
+  <img src="visual/02.png" alt="COMPASS architecture" width="920">
+</p>
+
+---
+
 ## Hackathon — All Things Agentic
 
 **Category: Collaborative Partner** — an interactive agent that walks the
@@ -503,12 +511,6 @@ Licensed under [Apache-2.0](LICENSE).
 
 
 ---
-
-## Architecture
-
-<p align="center">
-  <img src="visual/02.png" alt="COMPASS architecture" width="920">
-</p>
 
 ## Screenshots
 

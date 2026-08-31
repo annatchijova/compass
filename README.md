@@ -41,9 +41,18 @@ The three mandatory boxes, all checked:
 - **Demo video:** _to be filled_
 - **Architecture diagram:** below, and in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
-> Proven in production: `POST /api/narrate` with Gemini 2.5 Flash on Vertex
-> returns the same state seal (`8fc1128…`) as the offline backend — the model
-> changed the words, not a single sealed number. That is the whole thesis.
+**These are real Gemini calls, not mocks.** `POST /api/narrate` runs
+`gemini-3.5-flash` on Vertex AI and returns the *same* state seal it was given —
+the model changed the words, not a single sealed number. That is the whole
+thesis, and you can verify it against the live backend:
+
+```bash
+API=https://compass-1028999311218.us-central1.run.app; U=verify-$RANDOM
+H=(-H "X-Compass-User: $U" -H "content-type: application/json")
+curl -s "${H[@]}" "$API/api/state"                         | python3 -c "import sys,json;print('state   seal:', json.load(sys.stdin)['seal'])"
+curl -s "${H[@]}" -X POST "$API/api/narrate?language=English" | python3 -c "import sys,json;d=json.load(sys.stdin);print('narrate seal:', d['seal']);print(d['prose'][:120])"
+# identical seals; the prose is real, request-time Gemini output (not a fixture).
+```
 
 ### Anyone can use it — judges and owner alike
 

@@ -79,7 +79,7 @@ Every step below is sealed and appears in the append-only audit chain:
 
 ---
 
-## Architecture
+## Architecture at a glance
 
 <p align="center">
   <img src="visual/02.png" alt="COMPASS architecture" width="920">

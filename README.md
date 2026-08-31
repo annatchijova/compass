@@ -17,6 +17,14 @@ Google Cloud Console, not a mockup.
   <img src="visual/compass3.png" alt="COMPASS on Google Cloud" width="300">
 </p>
 
+*And the autonomous Autopilot is scheduled and green:* `compass-autopilot-cron`
+triggers the Autopilot Cloud Run Job daily on **Google Cloud Scheduler** —
+unattended, no errors, no human in the loop.
+
+<p align="center">
+  <img src="visual/autonomo.png" alt="compass-autopilot-cron live and green on Google Cloud Scheduler" width="900">
+</p>
+
 Most people don't really know what to dedicate themselves to. The tools that
 promise to help just hand you a confident label from a ten-question quiz —
 *"you're an ENFP"*, *"spatial reasoning: 68%"* — with nothing real behind it,

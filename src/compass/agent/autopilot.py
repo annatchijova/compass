@@ -260,7 +260,13 @@ def store_briefing_beside(uid: str, briefing: dict, sentinel: dict, *,
                           data_dir: str) -> str:
     """Escribe el briefing como artefacto AL LADO de la base (nunca adentro).
     Devuelve la ruta. Un directorio hermano `briefings/`; el archivo se
-    sobrescribe con el último briefing de cada usuario."""
+    sobrescribe con el último briefing de cada usuario.
+
+    Valida el uid en la frontera (allowlist estricta, igual que storage): el
+    uid entra en el nombre de archivo, así que un `../` no puede escribir
+    fuera del directorio de briefings. Los callers de hoy ya pasan uids
+    validados; este chequeo evita que un caller futuro lo saltee."""
+    storage.require_uid(uid)
     out_dir = Path(data_dir) / "briefings"
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"compass_{uid}.briefing.md"
@@ -366,7 +372,11 @@ def sweep(*, backend: Backend, data_dir: str | None = None,
             continue
         finally:
             conn.close()
-        storage.snapshot(uid)   # persiste la fila de cadena + briefing (o degrada)
+        # Snapshot sube el .db (que YA contiene la fila de cadena del acto
+        # autónomo). El markdown del briefing es un artefacto local efímero:
+        # su HASH queda sellado en la cadena, pero el texto no se persiste a
+        # GCS acá — surfacearlo a la persona (API/UI) es el próximo paso.
+        storage.snapshot(uid)
         results.append({"uid": uid, "seal": out["seal"],
                         "sentinel_ok": out["sentinel"]["ok"],
                         "next_step": out["briefing"]["next_step"].get("kind"),

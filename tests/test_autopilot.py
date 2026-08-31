@@ -107,6 +107,15 @@ def test_briefing_se_guarda_al_lado_no_adentro(tmp_path):
     assert verify_content(conn).content_ok is True
 
 
+def test_store_briefing_rechaza_uid_con_traversal(tmp_path):
+    """El uid entra en el nombre de archivo: un `../` debe rebotar en la
+    frontera (allowlist estricta), no escribir fuera del directorio."""
+    import pytest
+    from compass.storage import InvalidUserId
+    with pytest.raises(InvalidUserId):
+        autopilot.store_briefing_beside("../../evil", {}, {}, data_dir=str(tmp_path))
+
+
 def test_degrada_honesto_sin_hipotesis(tmp_path):
     from compass import engine
     conn = open_db(str(tmp_path / "empty.db"))

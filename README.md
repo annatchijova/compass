@@ -12,6 +12,8 @@
 triggers the Autopilot Cloud Run Job daily on **Google Cloud Scheduler** —
 unattended, no errors, no human in the loop.
 
+https://compass-web-1028999311218.us-central1.run.app/
+
 <p align="center">
   <img src="visual/autonomo.png" alt="compass-autopilot-cron live and green on Google Cloud Scheduler" width="900">
 </p>

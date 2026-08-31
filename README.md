@@ -22,6 +22,33 @@ The full design rationale is in [`docs/COMPASS-DESIGN-v0.md`](docs/COMPASS-DESIG
 
 ---
 
+## Everything inside COMPASS
+
+A full vocational-discovery partner, not a demo. What you can actually do:
+
+- **Two validated intake tests — 110 questions, and every result becomes a hypothesis to test, never a verdict.**
+  - **Big Five (OCEAN) — 50 items** from the public-domain IPIP.
+  - **RIASEC / Holland — 60 original items** (the model is free; we wrote our own items to stay clear of proprietary tests).
+  - No pseudoscience, no black box: a high score does not label you — it *proposes a hypothesis*, and nothing counts until you validate it and an experiment discriminates it. (`src/compass/intake.py`)
+
+- **Chat with a real multi-agent team (Google ADK), live.** A **Companion** orchestrates three specialists — an **Analyst** that names your open capabilities, an **Activity Scout** that searches the web (Google Search) for concrete things to go try, and a **Reflector** that asks the next question. More agents means more *proposals*, never more authority — none of them holds a tool that can move a sealed number. → [live agent chat](https://compass-agent-1028999311218.us-central1.run.app)
+
+- **The full abductive cycle.** Rival hypotheses about one capability are held alive at once; COMPASS proposes a **discriminating experiment with its failure criterion written before you run it**; you run it in your life; the outcome moves a sealed index.
+
+- **Five Gemini roles, none with authority.** Extractor (turns a life narrative into candidate signals), Abductor (rival hypotheses), Experiment designer, Resource finder (grounded by Google Search on Vertex), Narrator. Gemini proposes and narrates; it never decides.
+
+- **An evidence ledger where nothing counts until you validate it.** Self-report, behavioral, outcome, experiment-result and narrative-extracted evidence — the model has no authority; only *your* validation makes a signal real, and it only counts once you link it to a hypothesis.
+
+- **Vocational fit, honestly.** Name a **trajectory** (a path you are weighing) or **adopt an occupation** from the **O\*NET 31.0 Database** (12 occupations, CC BY 4.0) and see what the path *requires* versus what your evidence *shows* — a projection over sealed hypotheses that moves no index.
+
+- **Your version vs. the record.** A **confrontation** view surfaces where your self-perception and the sealed evidence disagree — a discrepancy to explore, never a verdict about who you are.
+
+- **A sealed, auditable core.** Every index is an integer 0–1000 computed with exact fractions — **no floating point in the decision path** — sealed with **SHA-256** into an **append-only, hash-chained ledger** with an **independent verifier**: linkage, integrity and content each verify on their own. Contradicting evidence weighs *more* than confirming evidence, so it can never become a flattering mirror.
+
+- **Built for real people.** A **calm mode** (one step at a time, for anyone a dashboard overwhelms — including neurodivergent users) and a **full dashboard**; **bilingual English / Spanish** throughout; **multi-user with no login** — every visitor gets their own isolated, sealed compass, snapshotted to Cloud Storage. Real **Gemini 3.5 Flash on Vertex AI** — swap the model and only the wording changes, never a verdict or a seal. **184 tests pass.**
+
+---
+
 ## Hackathon — All Things Agentic
 
 **Category: Collaborative Partner** — an interactive agent that walks the

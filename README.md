@@ -22,6 +22,22 @@ The full design rationale is in [`docs/COMPASS-DESIGN-v0.md`](docs/COMPASS-DESIG
 
 ---
 
+## Start in 60 seconds
+
+You do not need to understand abduction, hashes, or determinism to use COMPASS. You get a **Compass ID** — no email, no password (copy it to return to your compass later) — a built-in **60-second Quick Tour**, and an interface that always shows you **one single next step**. **You can stop anytime — nothing is lost.**
+
+Pick how you want to move:
+
+- **Calm mode** — a guided path, one action at a time (the default; for anyone a dashboard overwhelms).
+- **Full dashboard** — everything at once, when you want to explore.
+- **Chat with the Companion** — the ADK multi-agent team; just talk to it.
+
+In plain terms, the loop is: you start from **your own story or the intake tests** → COMPASS surfaces **possible signals** about your capabilities → they appear **pending**, and **you** decide which are really you → it keeps **rival hypotheses** alive instead of declaring "you are X" → it proposes a **concrete experiment** to tell them apart → you run it in your life and record what happened → it folds the evidence in and **recomputes** your index → you can weigh it against a **career path**, or just **chat with the team** to keep going. You never do it all at once — it always offers exactly one next action.
+
+The rigor below is a strength, not a hoop to jump through: a first-time user gets going in seconds; the deterministic engine, the hash-chaining and the rival-hypothesis logic run underneath a clean interface.
+
+---
+
 ## Everything inside COMPASS
 
 A full vocational-discovery partner, not a demo. Here is exactly what it does.

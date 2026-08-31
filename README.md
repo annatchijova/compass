@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="visual/01.jpeg" alt="COMPASS" width="680">
+</p>
+
 # COMPASS
 
 **Figure out what to lean into — from evidence of your own life, not a personality quiz.**
@@ -496,3 +500,29 @@ order does not change the index.
 Copyright 2026 Olga Vasilieva and Anna Tchijova.
 
 Licensed under [Apache-2.0](LICENSE).
+
+
+---
+
+## Architecture
+
+<p align="center">
+  <img src="visual/02.png" alt="COMPASS architecture" width="920">
+</p>
+
+## Screenshots
+
+<p align="center">
+  <img src="visual/03.png" width="49%">
+  <img src="visual/04.png" width="49%">
+  <img src="visual/05.png" width="49%">
+  <img src="visual/06.png" width="49%">
+  <img src="visual/07.png" width="49%">
+  <img src="visual/08.png" width="49%">
+  <img src="visual/09.png" width="49%">
+  <img src="visual/10.png" width="49%">
+  <img src="visual/11.png" width="49%">
+  <img src="visual/12.png" width="49%">
+  <img src="visual/13.png" width="49%">
+  <img src="visual/14.png" width="49%">
+</p>

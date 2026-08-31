@@ -45,6 +45,14 @@ export function Navbar() {
             >
               Agent chat
             </a>
+            <a
+              href="https://github.com/annatchijova/compass"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden rounded-full px-3 py-1.5 text-[13px] font-semibold text-ink-500 transition hover:bg-ink-900/5 hover:text-ink-900 sm:inline-block"
+            >
+              GitHub
+            </a>
             <LanguageToggle />
             <Link
               href="/compass"

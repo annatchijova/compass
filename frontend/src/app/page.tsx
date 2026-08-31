@@ -85,6 +85,23 @@ export default function LandingPage() {
             >
               {t("landing.ctaSecondary")}
             </a>
+            <a
+              href="https://compass-agent-1028999311218.us-central1.run.app/dev-ui/?app=compass_companion"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-ghost inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold"
+            >
+              Agent chat
+              <ArrowRight className="h-4 w-4" />
+            </a>
+            <a
+              href="https://github.com/annatchijova/compass"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-ghost inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold"
+            >
+              GitHub
+            </a>
           </div>
 
           <div className="animate-fade-up mt-6 grid max-w-[560px] grid-cols-1 gap-2.5 sm:grid-cols-3">

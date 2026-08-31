@@ -14,6 +14,7 @@ import * as api from "@/lib/api";
 import { ApiError } from "@/lib/api";
 import { useI18n, narratorLanguage } from "@/lib/i18n";
 import { localizeSeed } from "@/lib/seedI18n";
+import { PendingHint } from "@/components/PendingHint";
 import { Panel, Empty, ExampleChips } from "@/components/Panel";
 import { TrajectoryFit, FitChip } from "@/components/TrajectoryFit";
 import { OccupationPicker } from "@/components/OccupationPicker";
@@ -613,6 +614,7 @@ function ProposePaths({
       <button
         onClick={() => void propose()}
         disabled={busy !== null}
+        aria-busy={busy === "propose"}
         className="btn-ghost inline-flex items-center gap-2 rounded-full px-4 py-2 text-[13px] font-bold"
       >
         {busy === "propose" ? (
@@ -622,6 +624,8 @@ function ProposePaths({
         )}
         {t("traj.propose")}
       </button>
+
+      {busy === "propose" && <PendingHint hint={t("pending.propose")} />}
 
       {err && (
         <p className="mt-2 flex items-center gap-1.5 text-[12px] text-status-debilitada">

@@ -66,6 +66,11 @@ export default function LandingPage() {
             {t("landing.subtitle")}
           </p>
 
+          {/* One plain-language "why" line for a first-time visitor. */}
+          <p className="animate-fade-up mt-3 max-w-[560px] text-[14px] leading-relaxed text-ink-500">
+            {t("calm.why")}
+          </p>
+
           <div className="animate-fade-up mt-6 flex flex-wrap gap-3">
             <Link
               href="/compass"

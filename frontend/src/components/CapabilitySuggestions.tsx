@@ -15,6 +15,7 @@ import * as api from "@/lib/api";
 import { ApiError } from "@/lib/api";
 import { useI18n, narratorLanguage } from "@/lib/i18n";
 import { useAutoResize } from "@/lib/useAutoResize";
+import { PendingHint } from "@/components/PendingHint";
 import type {
   ExperimentDraft,
   ResourceKind,
@@ -107,6 +108,7 @@ export function CapabilitySuggestions({
         <button
           onClick={() => void design()}
           disabled={busy !== null}
+          aria-busy={busy === "design"}
           className="btn-ghost inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11.5px] font-bold"
         >
           {busy === "design" ? (
@@ -119,6 +121,7 @@ export function CapabilitySuggestions({
         <button
           onClick={() => void find()}
           disabled={busy !== null}
+          aria-busy={busy === "resources"}
           title={t("sugg.privacy")}
           className="btn-ghost inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11.5px] font-bold"
         >
@@ -130,6 +133,9 @@ export function CapabilitySuggestions({
           {t("sugg.resources")}
         </button>
       </div>
+
+      {busy === "design" && <PendingHint hint={t("pending.design")} />}
+      {busy === "resources" && <PendingHint hint={t("pending.resources")} />}
 
       {err && (
         <p className="mt-2 flex items-center gap-1.5 text-[12px] text-status-debilitada">

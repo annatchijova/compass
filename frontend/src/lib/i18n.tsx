@@ -78,8 +78,18 @@ const dict = {
     "calm.view.full": "Full",
     "calm.view.aria": "View mode",
     "calm.reassure": "You can stop anytime — nothing is lost.",
+    "calm.why":
+      "Find what to lean into from evidence of your own life — not a personality quiz. One small step at a time.",
     "calm.explore": "Explore more",
     "calm.next.eyebrow": "Your next step",
+    // Gentle pending hints for model-backed (Gemini/Vertex) calls (~10–30s).
+    "pending.narrate": "Gemini is putting it into words… (~10s)",
+    "pending.extract": "Gemini is reading your words… (~10s)",
+    "pending.design": "Gemini is drafting an experiment… (~10s)",
+    "pending.resources": "Gemini is looking for resources… (~15s)",
+    "pending.propose": "Gemini is composing paths… (~15s)",
+    "pending.recompute": "Recomputing and resealing…",
+    "pending.working": "Working…",
     // Per-next-step action buttons
     "calm.action.validar_evidencia": "Review the pending evidence",
     "calm.action.disenar_experimento": "Design an experiment",
@@ -470,8 +480,18 @@ const dict = {
     "calm.view.full": "Completo",
     "calm.view.aria": "Modo de vista",
     "calm.reassure": "Podés parar cuando quieras — no se pierde nada.",
+    "calm.why":
+      "Descubrí hacia dónde ir a partir de evidencia de tu propia vida — no un test de personalidad. Un paso chico a la vez.",
     "calm.explore": "Explorar más",
     "calm.next.eyebrow": "Tu paso siguiente",
+    // Avisos suaves de espera para llamadas al modelo (Gemini/Vertex) (~10–30s).
+    "pending.narrate": "Gemini lo está poniendo en palabras… (~10s)",
+    "pending.extract": "Gemini está leyendo tus palabras… (~10s)",
+    "pending.design": "Gemini está redactando un experimento… (~10s)",
+    "pending.resources": "Gemini está buscando recursos… (~15s)",
+    "pending.propose": "Gemini está componiendo caminos… (~15s)",
+    "pending.recompute": "Recalculando y resellando…",
+    "pending.working": "Procesando…",
     // Botones de acción por tipo de paso
     "calm.action.validar_evidencia": "Revisar la evidencia pendiente",
     "calm.action.disenar_experimento": "Diseñar un experimento",

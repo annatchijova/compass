@@ -24,6 +24,7 @@ import type {
 import { shortHash, contentSnippet } from "@/lib/utils";
 import { useAutoResize } from "@/lib/useAutoResize";
 import { localizeSeed } from "@/lib/seedI18n";
+import { PendingHint } from "@/components/PendingHint";
 import { CompassIdControl } from "@/components/CompassIdControl";
 import { LanguageToggle } from "@/components/LanguageToggle";
 
@@ -80,6 +81,11 @@ export function CalmDashboard({
           <CompassIdControl onChange={onUserChange} />
         </div>
       </div>
+
+      {/* One quiet "why am I doing this?" line for first contact. */}
+      <p className="mt-2 max-w-xl text-[13px] leading-relaxed text-ink-500">
+        {t("calm.why")}
+      </p>
 
       {/* Quiet chain indicator — not the big counts strip, no alarm color */}
       {chain && (
@@ -372,6 +378,7 @@ function DesignAction({
       <button
         onClick={() => void run()}
         disabled={busy === "design" || hypothesisId == null}
+        aria-busy={busy === "design"}
         className="btn-primary shadow-soft inline-flex items-center gap-2 rounded-full px-6 py-3 text-[14px] font-bold"
       >
         {busy === "design" ? (
@@ -381,6 +388,7 @@ function DesignAction({
         )}
         {t("calm.action.disenar_experimento")}
       </button>
+      {busy === "design" && <PendingHint hint={t("pending.design")} />}
       {err && <p className="mt-3 text-[12px] text-ink-500">{err}</p>}
     </div>
   );
@@ -526,6 +534,7 @@ function OnRamp({ onSaved }: { onSaved: () => void }) {
           <button
             onClick={() => void submit()}
             disabled={busy || !answer.trim()}
+            aria-busy={busy}
             className="btn-primary shadow-soft inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-bold"
           >
             {busy ? (
@@ -536,6 +545,7 @@ function OnRamp({ onSaved }: { onSaved: () => void }) {
             {t("calm.onramp.submit")}
           </button>
         </div>
+        {busy && <PendingHint hint={t("pending.extract")} />}
         {err && <p className="mt-2 text-[12px] text-ink-500">{err}</p>}
       </div>
     </div>

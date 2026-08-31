@@ -49,6 +49,7 @@ import { ConfrontationPanel } from "@/components/ConfrontationPanel";
 import { CalmDashboard } from "@/components/CalmDashboard";
 import { ViewToggle } from "@/components/ViewToggle";
 import { DashboardErrorBoundary } from "@/components/ErrorBoundary";
+import { PendingHint } from "@/components/PendingHint";
 import { getViewMode, setViewMode, type ViewMode } from "@/lib/viewMode";
 
 const NEXT_STEP_ICON: Record<NextStepKind, typeof FlaskConical> = {
@@ -253,6 +254,12 @@ export default function CompassDashboard() {
           </button>
         </div>
       </div>
+
+      {busy === "recompute" && (
+        <div className="mt-3 flex justify-end">
+          <PendingHint hint={t("pending.recompute")} />
+        </div>
+      )}
 
       {error && state && (
         <div className="animate-fade-up mt-4 flex items-center gap-2 rounded-2xl border border-status-debilitada/25 bg-status-debilitadaBg px-4 py-3 text-[13px] text-status-debilitada">
@@ -526,6 +533,7 @@ function ExtractPanel({ onValidated }: { onValidated: () => void }) {
         <button
           onClick={() => void run()}
           disabled={busy || !narrative.trim()}
+          aria-busy={busy}
           className="btn-primary shadow-soft inline-flex items-center gap-2 rounded-full px-4 py-2 text-[13px] font-bold"
         >
           {busy ? (
@@ -536,8 +544,9 @@ function ExtractPanel({ onValidated }: { onValidated: () => void }) {
           {t("panel.extract.action")}
         </button>
         {/* note is API-authored — rendered as-is */}
-        {note && <span className="text-[11px] italic text-ink-400">{note}</span>}
+        {note && !busy && <span className="text-[11px] italic text-ink-400">{note}</span>}
       </div>
+      {busy && <PendingHint hint={t("pending.extract")} />}
 
       {err && (
         <p className="mt-3 flex items-center gap-1.5 text-[12px] text-status-debilitada">
@@ -616,6 +625,7 @@ function NarratePanel({ language }: { language: "English" | "Spanish" }) {
       <button
         onClick={() => void run()}
         disabled={busy}
+        aria-busy={busy}
         className="btn-primary shadow-soft inline-flex items-center gap-2 rounded-full px-4 py-2 text-[13px] font-bold"
       >
         {busy ? (
@@ -625,6 +635,8 @@ function NarratePanel({ language }: { language: "English" | "Spanish" }) {
         )}
         {t("panel.narrator.action")}
       </button>
+
+      {busy && <PendingHint hint={t("pending.narrate")} />}
 
       {err && (
         <p className="mt-3 flex items-center gap-1.5 text-[12px] text-status-debilitada">

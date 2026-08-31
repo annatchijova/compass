@@ -31,6 +31,20 @@ export function Navbar() {
             >
               {t("nav.how")}
             </Link>
+            <a
+              href="/deck.html"
+              className="hidden rounded-full px-3 py-1.5 text-[13px] font-semibold text-ink-500 transition hover:bg-ink-900/5 hover:text-ink-900 sm:inline-block"
+            >
+              Deck
+            </a>
+            <a
+              href="https://compass-agent-1028999311218.us-central1.run.app/dev-ui/?app=compass_companion"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden rounded-full px-3 py-1.5 text-[13px] font-semibold text-ink-500 transition hover:bg-ink-900/5 hover:text-ink-900 sm:inline-block"
+            >
+              Agent chat
+            </a>
             <LanguageToggle />
             <Link
               href="/compass"

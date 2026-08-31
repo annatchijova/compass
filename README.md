@@ -37,6 +37,7 @@ The three mandatory boxes, all checked:
 | **Google Cloud service** | **Cloud Run** hosts the FastAPI backend; **Vertex AI** serves Gemini through the service identity (no API key stored). See [`DEPLOY.md`](DEPLOY.md). |
 
 - **Live web app (Cloud Run):** https://compass-web-1028999311218.us-central1.run.app
+- **Live multi-agent chat (ADK Web UI, Cloud Run):** https://compass-agent-1028999311218.us-central1.run.app — pick `compass_companion` and talk to the team (Companion orchestrating Analyst, Activity Scout, Reflector). Every reply is grounded in the sealed state; no agent can move an index.
 - **Demo video:** _to be filled_
 - **Architecture diagram:** below, and in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 

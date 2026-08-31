@@ -6,6 +6,7 @@ Paste-ready text for Devpost. Fill the _bracketed_ items after deploy.
 - **Repository:** https://github.com/annatchijova/compass
 - **Live web app:** https://compass-web-1028999311218.us-central1.run.app
 - **Live backend API (Gemini/Vertex on Cloud Run):** https://compass-1028999311218.us-central1.run.app
+- **Live multi-agent chat (Google ADK Web UI, Cloud Run):** https://compass-agent-1028999311218.us-central1.run.app — pick `compass_companion` and talk to the team (Companion + Analyst + Activity Scout + Reflector).
 - **Demo video (~4 min):** _<video URL>_
 
 ## Inspiration

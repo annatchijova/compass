@@ -73,9 +73,10 @@ Every step below is sealed and appears in the append-only audit chain:
 
 - **Vocational fit.** Name a **trajectory** you are weighing, or **adopt an occupation** from the **O\*NET 31.0 Database** (12 occupations, CC BY 4.0). See it requirement by requirement — **MET / SUPPORTED / OPEN / AGAINST** — what the path *requires* vs. what your evidence *shows*, and find the capability that separates two paths. It is a projection over sealed hypotheses; it moves no index.
 - **Chat with a real multi-agent team (Google ADK), live** — a **Companion** orchestrating an **Analyst** (names your open capabilities), an **Activity Scout** (searches the web with Google Search for things to go try), and a **Reflector** (asks the next question). More agents means more proposals, never more authority. → [agent chat](https://compass-agent-1028999311218.us-central1.run.app)
+- **An autonomous Autopilot that works while you sleep** — the same team, run **unattended in the background** as a **Cloud Run Job on a Cloud Scheduler cron**. It sweeps every sealed compass, watches the seal (a **Sentinel** that verifies the audit chain across all users), and leaves a ready-to-act **next-step briefing** — proposed experiment, activities to run it, narration — *beside* your base. It never validates, links, closes or seals anything: a fail-closed guard raises if a run ever moved a sealed index. Autonomy over the *heavy lifting*, never over your *decision*. → `compass.agent.autopilot`, `deploy/autopilot/`
 - **Your version vs. the record** — a **confrontation** view surfaces where your self-perception and the sealed evidence disagree.
 - **A sealed, auditable core** — exact fractions (no floating point in the decision path), SHA-256, an append-only hash-chained ledger with an **independent verifier**: **linkage / integrity / content** each verify on their own. Contradicting evidence weighs *more* than confirming, so it can never flatter you.
-- **Calm mode** (one step at a time, for anyone a dashboard overwhelms), **bilingual English / Spanish**, **multi-user with no login**, real **Gemini 3.5 Flash on Vertex AI**, **184 tests**.
+- **Calm mode** (one step at a time, for anyone a dashboard overwhelms), **bilingual English / Spanish**, **multi-user with no login**, real **Gemini 3.5 Flash on Vertex AI**, **189 tests**.
 
 ---
 
@@ -99,7 +100,7 @@ The three mandatory boxes, all checked:
 |---|---|
 | **Gemini model** (Gemini API or Vertex AI) | `GeminiBackend` (`src/compass/llm.py`) — one backend for both transports via the native `google-genai` env flags. The mandatory model, used only to *narrate* and *propose*. |
 | **Google agent framework** | **ADK** — `compass.agent.root_agent` (`src/compass/agent/agent.py`): a **team** of agents — a Companion orchestrator with three specialist `sub_agents` (Analyst, Activity Scout with Google Search, Reflector). More agents means more *proposals*, never more authority: no agent in the team holds a tool that can move a sealed index (enforced by `tests/test_agent_team.py`). |
-| **Google Cloud service** | **Cloud Run** hosts the FastAPI backend; **Vertex AI** serves Gemini through the service identity (no API key stored). See [`DEPLOY.md`](DEPLOY.md). |
+| **Google Cloud service** | **Cloud Run** hosts the FastAPI backend and the ADK Web UI; **Cloud Run Jobs + Cloud Scheduler** run the autonomous Autopilot sweep in the background; **Vertex AI** serves Gemini through the service identity (no API key stored). See [`DEPLOY.md`](DEPLOY.md). |
 
 - **Live web app (Cloud Run):** https://compass-web-1028999311218.us-central1.run.app
 - **Live multi-agent chat (ADK Web UI, Cloud Run):** https://compass-agent-1028999311218.us-central1.run.app — pick `compass_companion` and talk to the team (Companion orchestrating Analyst, Activity Scout, Reflector). Every reply is grounded in the sealed state; no agent can move an index.
@@ -489,7 +490,7 @@ tests are stdlib-only, the rest need the extra whose surface they cover.
 |---|---|
 | nothing (stdlib) | 143 pass · 7 fail + 10 error, all `ModuleNotFoundError: fastapi` · 2 skip |
 | `.[api]` | 158 pass · 2 fail — the `GeminiBackend` fail-closed tests need `google-genai` · 2 skip |
-| `.[api,gemini]` | 160 pass · 2 skip — the ADK tests need `google-adk` |
+| `.[api,gemini]` | 165 pass · 2 skip — the ADK tests need `google-adk` |
 | `.[api,gemini,adk]` | 162 pass |
 
 Failures in the first two rows are missing dependencies, not regressions; the

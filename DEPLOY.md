@@ -153,6 +153,41 @@ boot (no cross-instance shared state). The architecture invariant still holds �
 every agent reads or reseals through the deterministic core; none can fabricate
 an index.
 
+## Deploy the Autopilot (background job + cron)
+
+The autonomous layer runs as a **Cloud Run Job** (not a service: it runs to
+completion and exits) triggered by **Cloud Scheduler**. On each run it sweeps
+every user's compass, watches the seal (Sentinel), and leaves a next-step
+briefing beside the base. It reuses the same project, Vertex config and GCS
+bucket as the backend, so it restores/snapshots the very same user bases — and
+it stays on schema v3 (an append-only chain row, no migration), so the already
+deployed services keep opening those bases unchanged.
+
+Run it locally first (offline, no credential — the role-aware demo backend):
+
+```bash
+PYTHONPATH=src COMPASS_BACKEND=demo python -m compass \
+  --db /tmp/compass.db autopilot --data-dir /tmp/compass-data --language English
+# or sweep every base under $COMPASS_DATA_DIR (the job's mode):
+PYTHONPATH=src COMPASS_BACKEND=demo python -m compass.agent.autopilot
+```
+
+Deploy the job and its daily cron in one script:
+
+```bash
+# builds the image, creates/updates the Cloud Run Job and the Scheduler cron.
+bash deploy/autopilot/deploy.sh
+# trigger one run immediately (great for the demo video):
+gcloud run jobs execute compass-autopilot --region us-central1 --project vigia-497422
+gcloud run jobs executions list --job compass-autopilot --region us-central1 --project vigia-497422
+```
+
+The job's runtime service account needs read/write on the GCS bucket and Vertex
+access (the same grants the backend already has), plus the Scheduler service
+account needs `roles/run.invoker`. The Autopilot never validates, links, closes
+or seals anything: a fail-closed guard raises `AutopilotBoundaryError` if a run
+ever moved a sealed index, and `tests/test_autopilot.py` locks that in.
+
 ## Known considerations
 
 - Deployed `--allow-unauthenticated` for the demo. Agent-mode / narrate /

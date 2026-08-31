@@ -163,6 +163,48 @@ def cmd_compass(args):
         print(f"\n[seal: {sealed['seal']}]")
 
 
+def cmd_autopilot(args):
+    """El equipo en BACKGROUND: vigila el sello y arma el próximo paso, sin
+    validar, vincular ni sellar nada. --sweep barre todas las brújulas (el
+    modo del Cloud Run Job); sin él, corre sobre --db una vez."""
+    from .agent import autopilot
+    from .llm import backend_from_kind
+    backend = backend_from_kind(args.backend
+                                or os.environ.get("COMPASS_BACKEND", "demo"))
+    if args.sweep:
+        results = autopilot.sweep(backend=backend, data_dir=args.data_dir,
+                                  language=args.language)
+        _print({"swept": len(results), "results": results})
+        return 0
+    conn = open_db(_db_path(args))
+    out = autopilot.autopilot_once(conn, backend=backend, language=args.language,
+                                   uid="local", data_dir=args.data_dir,
+                                   record=not args.no_record)
+    if args.json:
+        _print(out)
+        return 0
+    b, s = out["briefing"], out["sentinel"]
+    print(f"[seal: {out['seal']}]")
+    print(f"sentinel: {'OK' if s['ok'] else 'ALERTA'} "
+          f"(linkage={s['linkage_ok']} integrity={s['integrity_ok']} "
+          f"content={s['content_ok']})")
+    step = b["next_step"]
+    print(f"próximo paso: {step.get('kind')} — {step.get('detail', '')}")
+    if b["proposed_experiment"]:
+        print(f"experimento propuesto: {b['proposed_experiment']['design']}")
+    if b["activities"] and b["activities"].get("resources"):
+        grounded = "buscadas" if b["activities"].get("grounded") else "sin búsqueda"
+        print(f"actividades para testear ({grounded}):")
+        for r in b["activities"]["resources"]:
+            print(f"  [{r['kind']}] {r['title']} — {r['why']}")
+    print(f"\n{b['prose']}")
+    if out["artifact"]:
+        print(f"\n[briefing guardado al lado: {out['artifact']}]")
+    for n in b["notes"]:
+        print(f"[nota] {n}")
+    return 0
+
+
 def cmd_traj_add(args):
     conn = open_db(_db_path(args))
     tid = trajectories.trajectory_add(conn, name=args.nombre,
@@ -322,6 +364,22 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("verify",
                    help="verificar la cadena (verificador interno)").set_defaults(fn=cmd_verify)
+
+    ap = sub.add_parser("autopilot",
+                        help="el equipo en background: vigila el sello y arma "
+                             "el próximo paso (no valida, no vincula, no sella)")
+    ap.add_argument("--sweep", action="store_true",
+                    help="barrer TODAS las brújulas del data-dir (modo Cloud Run Job)")
+    ap.add_argument("--data-dir", default=None,
+                    help="dónde viven las bases y se escriben los briefings "
+                         "(default: $COMPASS_DATA_DIR)")
+    ap.add_argument("--language", default="English", choices=("English", "Spanish"))
+    ap.add_argument("--backend", default=None,
+                    help="backend LLM (default: $COMPASS_BACKEND o 'demo' offline)")
+    ap.add_argument("--json", action="store_true", help="salida JSON completa")
+    ap.add_argument("--no-record", action="store_true",
+                    help="no anexar el rastro del briefing a la cadena")
+    ap.set_defaults(fn=cmd_autopilot)
     return p
 
 

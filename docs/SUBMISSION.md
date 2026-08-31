@@ -7,6 +7,7 @@ Paste-ready text for Devpost. Fill the _bracketed_ items after deploy.
 - **Live web app:** https://compass-web-1028999311218.us-central1.run.app
 - **Live backend API (Gemini/Vertex on Cloud Run):** https://compass-1028999311218.us-central1.run.app
 - **Live multi-agent chat (Google ADK Web UI, Cloud Run):** https://compass-agent-1028999311218.us-central1.run.app — pick `compass_companion` and talk to the team (Companion + Analyst + Activity Scout + Reflector).
+- **Autonomous background job (Cloud Run Job + Cloud Scheduler):** `compass-autopilot` — the same team, unattended: on a cron it sweeps every sealed compass, watches the seal, and leaves a next-step briefing waiting. No URL because it is batch work; proof is in the demo video (job execution + logs) and `deploy/autopilot/`.
 - **Demo video (~4 min):** _<video URL>_
 
 ## Inspiration
@@ -26,6 +27,47 @@ discriminating experiment → observation → update. It surfaces one determinis
 next step, holds rival explanations alive until an experiment separates them,
 and weights contradicting evidence *more* than confirming evidence so it can
 never become a flattering mirror.
+
+## The autonomous layer (Autopilot): action without crossing the boundary
+
+Most agents earn the word "autonomous" by taking the decision away from the
+person. COMPASS's whole thesis forbids that — the person validates evidence,
+links it, and closes experiments; the engine seals. So the autonomy we added is
+autonomy over the *heavy lifting*, never over the *decision*.
+
+`compass autopilot` (module `compass.agent.autopilot`) is the same no-authority
+team, running **unattended in the background** as a Cloud Run Job on a Cloud
+Scheduler cron. While the person is away it, per user:
+
+1. reads the *already-sealed* state (read-only);
+2. names the deterministic gap — the capability worth testing;
+3. **proposes** the next discriminating experiment (the Abductor role);
+4. **proposes** concrete activities to run it (the Activity Scout, via Gemini +
+   Google Search, grounded with real sources);
+5. puts it into words (the Narrator);
+6. and, as a Sentinel, **verifies the audit chain of every compass** (linkage,
+   integrity, content) so tampering is not just *detectable* but actively
+   *watched* — unattended, across many users.
+
+The person wakes up to a briefing that is ready to act on. The heavy lifting —
+gap analysis, web search, drafting, chain verification across the whole fleet —
+happened asynchronously while they slept. This is the "runs in the background,
+handles the heavy lifting, async" thesis, delivered *without* surrendering the
+architectural invariant that makes COMPASS trustworthy.
+
+Three guards keep the autonomous actor on the right side of the boundary:
+
+- **By construction** it imports only sealed reads, the no-authority roles, and
+  the verifier — it holds no domain-write lever at all.
+- **By a fail-closed runtime guard**: the seal and every index are snapshotted
+  before and after each run; if anything moved, it raises `AutopilotBoundaryError`
+  — the architecture would be broken. `tests/test_autopilot.py` locks this in,
+  including the backend-swap test (Gemini ↔ offline) that must change only the
+  wording, never the seal.
+- **By storing the briefing BESIDE the seal, never inside it**: the briefing is a
+  separate artifact; only its hash goes into the append-only chain (exactly like
+  the narrator's prose). The schema never changes, so the already deployed
+  services keep opening the same bases untouched.
 
 ## How we built it
 
@@ -50,8 +92,10 @@ before the agent ever sees it.
 - **Gemini** via **Vertex AI** (and Gemini API) — the mandatory model, used
   only to narrate and propose.
 - **Google ADK** — `compass.agent.root_agent`, a tool-bounded agent.
-- **Cloud Run** — hosts the FastAPI backend; Vertex serves Gemini through the
-  service identity (no key stored).
+- **Cloud Run** — hosts the FastAPI backend and the ADK Web UI; Vertex serves
+  Gemini through the service identity (no key stored).
+- **Cloud Run Jobs + Cloud Scheduler** — run the Autopilot as a scheduled,
+  async background sweep (`deploy/autopilot/`): the autonomous, unattended layer.
 - **Cloud Storage** — per-user isolated SQLite bases snapshotted for durability
   (multi-user with no login: every browser gets its own sealed compass).
 - Python stdlib deterministic core + SQLite; **Next.js** frontend (bilingual
@@ -94,6 +138,7 @@ dogfooding data. The full list is under "Still open" in the README.
 | Gemini 3.5+ (Gemini API or Vertex AI) | `src/compass/llm.py` `GeminiBackend`; deployed on Vertex |
 | Google agent framework (ADK) | `src/compass/agent/agent.py` `root_agent` |
 | Google Cloud service (Cloud Run) | `DEPLOY.md` |
+| Autonomous background action (Cloud Run Jobs + Cloud Scheduler) | `deploy/autopilot/`, `compass.agent.autopilot` |
 | Public repo + README setup | `README.md` |
 | Architecture diagram | `docs/ARCHITECTURE.md`, `README.md` |
 | ~4-min demo video | _<video URL>_ |

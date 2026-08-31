@@ -1,0 +1,13 @@
+# Build the COMPASS Autopilot job image (context = repo root).
+#   gcloud builds submit --config deploy/autopilot/cloudbuild.yaml --project vigia-497422 .
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - deploy/autopilot/Dockerfile
+      - -t
+      - gcr.io/vigia-497422/compass-autopilot
+      - .
+images:
+  - gcr.io/vigia-497422/compass-autopilot

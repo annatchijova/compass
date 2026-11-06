@@ -168,7 +168,8 @@ def test_api_intake_cycle(tmp_path, monkeypatch):
     importlib.reload(api_module)
     from fastapi.testclient import TestClient
 
-    with TestClient(api_module.app) as c:
+    with TestClient(api_module.app,
+                    headers={"X-Compass-User": "t-own-compass"}) as c:
         items = c.get("/api/intake/items", params={"instrument": "riasec"}).json()["items"]
         assert len(items) == len(intake.RIASEC_ITEMS)
         aid = c.post("/api/intake/assessments", json={"instrument": "riasec"}

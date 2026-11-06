@@ -403,7 +403,13 @@ COMPASS_MODEL=gemini-2.5-flash,COMPASS_GCS_BUCKET=compass-user-data-vigia-497422
   that can only raise confidence is a flattering mirror, not a compass.
 - **Corroboration requires a discriminating experiment.** No volume of
   self-report corroborates a hypothesis; only `experiment_result` /
-  `outcome_external` evidence can.
+  `outcome_external` evidence can — and neither can be declared by a client:
+  `experiment_result` is born only from completing a preregistered experiment,
+  and the API/CLI reject both types (Red Team Round 2, R2-1). Still open:
+  one experiment's result can be linked to other hypotheses (R2-2).
+- **The public showcase is read-only.** The `demo` compass every visitor lands
+  on rejects writes (403) and its connection is opened `query_only`; writing
+  needs your own compass id (Red Team Round 2, R2-6).
 - **Canonical, typed, versioned serialization**, sealed with SHA-256 over
   the canonical bytes. `bool` is checked before `int` so `1`, `"1"`, `1.0`,
   `True` are distinguishable.

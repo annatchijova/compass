@@ -2,286 +2,377 @@
 
 ## Red Team Round 2
 
-**Date:** 2026-11-06 **Method:** Abductive Engineering (A–D–I) + Red-Team Auditing
-**Scope:** everything that landed *after* Round 1 (base `675fe3c`): the
-multi-user API (`X-Compass-User` → per-user SQLite), GCS snapshot persistence
-(`storage.py`), the autonomous Autopilot (`agent/autopilot.py`, Cloud Run Job +
-Scheduler), and a re-attack of the engine's **corroboration gate** and the
-Round-1 prose guard (variant analysis). Out of scope: modifying source code;
-touching the live deployment (every induction ran offline).
-**Base:** `main` @ `85d8d2e` **Runtime:** Python 3.13.18, fastapi (latest from pip)
-**Reproducible evidence:** `python3 -I tools/redteam_round2.py` (offline; fake
-GCS bucket shared between simulated instances; `google.adk` stubbed). Every
-experiment prints PREDICTION before OBSERVED.
+**Date:** 2026-11-06
+**Method:** the `annatchijova/SKILLS` red-team collection — `METHODOLOGY.md`
+(assessment contract), `red-team-auditing`, `discriminating-proof`,
+`invariant-hunting`, `authorization-surface-mapping`, `concurrency-reasoning`,
+`distributed-write-atomicity`, `remediation-driven-reporting`,
+`finding-custody`.
+**Scope:** what landed after Round 1 (`675fe3c`): the multi-user API, GCS
+snapshot persistence, the Autopilot (Cloud Run Job + Scheduler), the deployed
+ADK agent service; plus a re-attack of the corroboration gate and a variant
+analysis of Round-1 finding A.
+**Permitted actions:** reading the repository; running the code locally.
+**Not permitted / not done:** contacting the live deployment; modifying source
+code. **Stop condition:** minimum evidence for each proposition.
+**Base:** `main` @ `85d8d2e` **Runtime:** Python 3.13.18, fastapi + httpx from
+pip (no `google-adk` / `google-genai` installed).
+**Reproducer:** `python3 -I tools/redteam_round2.py` — offline, ~5 s, prints
+PREDICTION → test column → negative-control column → binary ORACLE for each
+proposition, then a summary table.
+
+### Finding status vocabulary
+
+Findings: **CANDIDATE · CONFIRMED · REFUTED · NOT TESTED**. Every CONFIRMED in
+this report has the same system scope unless stated otherwise: **the code at
+`85d8d2e`, executed locally under the accommodations below.** None is a claim
+about the live deployment; where impact on the deployment is stated, it is an
+*inference* from the deploy configuration (CODE FACT) and is labelled as such.
+Controls are reported separately as **PASS / WARN / FAIL** against a named test.
+
+### Environment accommodations (each would not change the result)
+
+| Accommodation | Why it does not change the result |
+|---|---|
+| GCS replaced by a local-directory fake bucket | `storage.snapshot` uses a whole-object upload with no precondition (`storage.py:130`); the fake has exactly those semantics. A real bucket would differ only if a generation precondition were used, and none is. |
+| Cloud Run instances = separate `COMPASS_DATA_DIR`s | Cloud Run instances do not share local disk; `ensure_local` returns the local copy when it exists (`storage.py:96`). |
+| `google.adk` stubbed (`Agent = kwargs dict`) | The ADK tool functions under test are plain Python and run unmodified; ADK only routes calls to them and never passes a session id to them (`agent.py:49-50`). |
+| LLM backend = offline `demo` | No finding depends on model behavior; R2-4 counts calls, it does not need their content. |
+
+**Harness defect, recorded:** the first controlled run printed `R2-1 REFUTED`.
+Both columns had produced the predicted values (test `corroborada` 714,
+control `activa` 716); the oracle was wrong — it counted every experiment in
+the compass, including the one in the seeded demo scenario. Fixed to count
+experiments on the test/control hypotheses only. Kept here because a REFUTED
+printed by a broken oracle is exactly the kind of result a reviewer should be
+able to audit.
+
+---
 
 ## Threat model
 
-- **Attacker CAN:** send arbitrary HTTP requests to the API (the deploy is
-  `--allow-unauthenticated`, CORS `*`); choose any `X-Compass-User` value or
-  omit it; act as the person on their own compass (the self-deception vector —
-  the product's stated adversary is the flattering mirror). For the persistence
-  findings no attacker is needed at all: the "adversary" is the deployed
-  topology itself (`--min-instances 1 --max-instances 4`, daily Autopilot job).
-- **Attacker CANNOT:** modify code; read another user's compass id (ids are
-  12 chars from a 62-symbol alphabet via `crypto.getRandomValues`, ≈71 bits —
-  brute force is not a realistic vector); write to the GCS bucket directly.
-- **Trust boundaries crossed:** caller-declared label → corroboration gate
-  (R2-1, R2-2); instance-local disk ↔ GCS (R2-3); anonymous internet → paid
-  LLM calls (R2-4); model prose → human reader (R2-5); anonymous internet →
-  shared showcase under a real person's name (R2-6).
+- **Actors enumerated** (`authorization-surface-mapping` Part 1): anonymous
+  internet client with no header; holder of compass id X (the person, or
+  anyone given X); holder of a different id Y; LLM roles (extractor, abductor,
+  narrator, resource finder); a visitor of the ADK agent service; the
+  Autopilot job; *the deployment topology itself* (instances, warm copies).
+- **Attacker CAN:** send arbitrary HTTP to the API (`--allow-unauthenticated`,
+  CORS `*`); pick or omit `X-Compass-User`; act as the person on their own
+  compass (the self-deception adversary the product names); chat with the
+  public ADK service.
+- **Attacker CANNOT:** modify code; guess another person's id (12 chars ×
+  62 symbols from `crypto.getRandomValues`, ≈71 bits); write the bucket
+  directly.
 
-## Epistemic legend
+## Invariant table (`invariant-hunting` Part 1)
 
-CODE FACT · PLAUSIBLE HYPOTHESIS · CONFIRMED BY INDUCTION · FALSIFIED
+| Invariant the system declares | Established at | Transported by | Reconstituted at | Sink | Result |
+|---|---|---|---|---|---|
+| Corroboration requires a discriminating experiment (README:404) | `experiment_complete` creates `experiment_result` | `evidence.evidence_type` label | `compute_hypothesis` reads the label (engine.py:268) | status `corroborada` | **broken** — R2-1, R2-2 |
+| Only validated evidence counts | person's validate act | `evidence.validated` | engine SQL filter | sealed index | holds — AUTHZ-2 |
+| Every ledger entry persists ("never a silent gap") | `append` in a transaction | local SQLite file | `ensure_local` / GCS restore | `/api/chain`, verifiers | **broken** — R2-3 |
+| Single writer per compass (README:479) | session affinity | browser → instance | — | GCS object | **broken by the Autopilot** — R2-3b |
+| One compass per person | `X-Compass-User` | header | `storage.local_path` | per-user DB | holds on the API (AUTHZ-1); **broken on the agent service** — R2-8 |
+| Narration never states the index as a probability (README:421) | `validate_prose` | prose string | — | human reader | **partially broken** — R2-5 |
+| The failure criterion is written *before* running | preregister | `experiment.preregistered_at` | `experiment_complete` | `experiment_result` | not enforced — R2-7 |
 
-## What holds
-
-The Round-1 boundaries were re-tested and **still hold**: unvalidated evidence
-linked ×10 contributes `index=0` (extractor boundary); uid path traversal
-(`../etc`, `a/b`, 65 chars, `%2F`) is rejected with 400; the Autopilot's
-fail-closed guard did not trip in any run, and it indeed has no domain write
-lever. The findings below are not breaks of the seal — the seal is computed
-faithfully every time. They are cases where **a wrong state gets sealed**, or
-where **a sealed entry silently disappears**.
+---
 
 ## Executive summary
 
-| ID | Severity | Level | Module | Finding |
-|----|----------|-------|--------|---------|
-| R2-1 | High | CONFIRMED BY INDUCTION | `api.py`, `engine.py` | "Corroborating requires a discriminating experiment" is bypassed by **labelling** self-entered evidence `outcome_external`: `corroborada` (714) with zero experiments. |
-| R2-2 | Medium | CONFIRMED BY INDUCTION | `domain.py`, `engine.py` | One `experiment_result` can be **linked to other hypotheses** and act as their discriminating evidence: `corroborada` (785) with no experiment of its own. |
-| R2-3 | High | CONFIRMED BY INDUCTION (offline); deploy precondition = CODE FACT | `storage.py`, `autopilot.py` | GCS snapshot is last-write-wins over a stale local copy: writes from another instance — and the Autopilot's own chain row — are **silently lost**, and the surviving chain **verifies clean**. |
-| R2-4 | Medium | CONFIRMED BY INDUCTION (offline) | `api.py`, `autopilot.py` | Anonymous, unbounded compass creation: 1 POST per fresh id ⇒ a GCS blob ⇒ ≈3 LLM calls per id per Autopilot run (denial-of-wallet); GET-only requests fill `/tmp` (RAM on Cloud Run). |
-| R2-5 | Low–Med | CONFIRMED BY INDUCTION | `llm.py` | The Round-1 percentage guard is a narrow regex: `97 per cent`, `97 pct`, `97％`, `noventa y siete por ciento`, `0.97 probability`, `950/1000` all pass. |
-| R2-6 | Low–Med | CONFIRMED BY INDUCTION | `api.py`, `seed_demo.py` | A request with no header writes to the shared `demo` showcase, which is presented under a real person's name ("Anna (user zero)"); combined with R2-1, anyone can seal flattering — or damaging — claims there. |
-| R2-7 | Low | CONFIRMED (code fact + trivial run) | `domain.py` | "Preregistration" has no temporal separation: preregister + complete 5 ms apart is accepted, so a post-hoc experiment looks preregistered. |
+| ID | Impact (one sentence) | Demonstrated severity | Status | Novelty |
+|---|---|---|---|---|
+| R2-1 | Anyone who controls a compass can make a hypothesis **"corroborated" with zero experiments** by labelling their own entries `outcome_external`. | High | CONFIRMED | new; contradicts README:404 |
+| R2-3 | The Autopilot's sealed chain row (and any write from another instance) is **silently erased** by the next web write, and every verifier still reports OK. | High | CONFIRMED (local); deploy reach = inference from CODE FACT | two-instance race is a **declared** blind spot; the Autopilot breaking the single-writer premise is new |
+| R2-2 | One completed experiment can corroborate **any number of unrelated hypotheses**. | Medium | CONFIRMED | new |
+| R2-8 | On the public ADK agent service, **every visitor shares one compass**: visitor A's actions change visitor B's state and next step. | Medium | CONFIRMED (local); cross-session prompt injection via state REFUTED | new; DEPLOY.md covers cross-*instance*, not cross-*session* |
+| R2-4 | An anonymous client can enrol unbounded compasses, each costing ≈3 billed LLM calls **every day** via the Autopilot. | Medium | CONFIRMED (local, counted calls) | partly declared (DEPLOY.md:194, per-request only) |
+| R2-6 | A request without a header can rewrite the shared showcase presented as **"Anna (user zero)"**. | Low–Medium | CONFIRMED | new |
+| R2-5 | `97 per cent`, `97％`, `noventa y siete por ciento`, `0.97 probability`, `950/1000` pass the guard that README says rejects "any percentage". | Low–Medium | CONFIRMED | variant of declared R1-A; contradicts README:421 |
+| R2-7 | An experiment can be preregistered and closed 6 ms later, so a post-hoc experiment looks preregistered. | Low | CONFIRMED | new (declared limitation class, R1-C) |
+
+**Refuted this round** (first-class results): cross-id IDOR (AUTHZ-1),
+unvalidated evidence moving an index (AUTHZ-2), cross-session prompt injection
+through `get_compass_state` (R2-8b), uid path traversal, Autopilot moving a
+sealed value.
 
 ---
 
 ## Findings
 
-### R2-1 — The corroboration gate trusts a caller-declared label
+### R2-1 — The corroboration gate reads a label the caller writes
 
-**Severity:** High **Level:** CONFIRMED BY INDUCTION
-**Bucket:** software / design vulnerability
-**Precondition:** controls the compass (the person themselves, or anyone with
-the id — including anyone at all on `demo`, see R2-6).
+**Impact:** anyone who controls a compass — the person, or anyone at all on
+`demo` (R2-6) — can seal `corroborada` without any experiment.
+**Severity:** demonstrated **High** (the product's headline guarantee against
+the flattering mirror, README:404, is bypassed by its own adversary).
+**Status:** CONFIRMED — proposition: *"self-typed `outcome_external` opens the
+corroboration gate with 0 experiments, and the type label is the factor."*
+Scope: code at `85d8d2e`, local.
 
-- **Expectation violated:** README / CLAUDE_LEEME: *"Corroborar exige un
-  experimento discriminante. Ningún volumen de auto-reporte corrobora."*
-- **Code fact:** `engine.compute_hypothesis` grants `corroborada` when
-  `index >= 600` **and** some supporting evidence has
-  `evidence_type ∈ corroboration_requires = [experiment_result, outcome_external]`.
-  `POST /api/evidence` accepts any `evidence_type` from the body, with
-  `validated: bool = True` by default. Nothing ties `outcome_external` to an
-  external source, nor `experiment_result` to an experiment.
-- **Abduction (ranked by cost):** (1) the gate checks a *label*, and the label
-  is input-controlled; (2) the API restricts which types a person may enter
-  directly. (2) is falsified by reading `EvidenceIn` — no restriction. Test (1).
-- **Deduction:** three self-typed `outcome_external` entries (3×250 = 750 net)
-  linked as `supports` ⇒ index ≥ 600 and status `corroborada`, with 0
-  experiments on the hypothesis.
-- **Induction:**
-  ```
-  PREDICTION: status=corroborada, index>=600, 0 experimentos sobre la hipótesis
-  OBSERVED:   status=corroborada index=714 experimentos=0 seal=c6e97104c04d5b77…
-  ```
-  The same works with `evidence_type: "experiment_result"` typed by hand.
-- **Causal chain:**
-  ```
-  caller sets evidence_type="outcome_external" (body field)
-      ↓ born validated=1 by default
-  caller links it as supports (human act — allowed)
-      ↓
-  engine: weight 250 each AND discriminante_a_favor = True  (label check only)
-      ↓
-  corroborada — sealed
-  ```
-- **Precise language:** not "the seal is broken" — **"a `corroborada` status
-  with no discriminating experiment behind it can be sealed, because the gate
-  reads a self-declared type."** This is the relabel shape, not injection.
-- **Recommendation:** make the discriminating types *unforgeable by
-  construction*: reject `experiment_result` on `POST /api/evidence` (only
-  `experiment_complete` may create it), and give `outcome_external` a required,
-  recorded provenance (who/where), or drop it from `corroboration_requires`
-  until it has one. Weight is a separate question from gate eligibility.
+**Reproduce** (`tools/redteam_round2.py`, block R2-1). One factor differs:
+
+| Column | Evidence | Net | Index | Status |
+|---|---|---|---|---|
+| test | 3 × `outcome_external`, self-entered, linked `supports` | 750 | 714 | **corroborada** |
+| control | 19 × `self_report`, same endpoint, same direction | 760 | 716 | activa |
+
+Experiments on either hypothesis: 0. The control rules out "the index alone
+corroborates": with a *higher* index, the control stays `activa`.
+
+**Why this is a boundary crossing.** Invariant:
+`status == corroborada ⇒ ∃ experiment E preregistered for H, completed exito`.
+The engine checks `evidence_type ∈ corroboration_requires`
+(`engine.py:268-269`); `POST /api/evidence` takes `evidence_type` from the body
+(`api.py:225`) and defaults `validated` to `True` (`api.py:228`). Family:
+*validated once, never re-validated* — the property "came from an experiment /
+from outside" is established nowhere; it is asserted by the writer.
+
+**The class.** Pattern: a gate keyed on a self-declared provenance label.
+Also applies, CODE FACT, to `experiment_result` typed by hand (same field,
+same check) — not run separately. **Complete fix =** the invariant above holds
+on every path that creates evidence, not "`outcome_external` is rejected".
+
+**Remediation (ranked).** 1. Structural: provenance by construction — only
+`experiment_complete` may create `experiment_result`; `outcome_external`
+requires a recorded provenance (who/where) and stays out of
+`corroboration_requires` until it has one. 2. Scoped: reject both types on
+`POST /api/evidence`. 3. Stopgap: drop `validated: bool = True` default.
+**Regression assertion:** POST of `experiment_result` / `outcome_external`
+via `/api/evidence` → 400; the test column above must end `activa`.
+**Detection requirement:** chain entries `evidence_added` with
+`evidence_type ∈ {experiment_result, outcome_external}` and
+`source` not of the form `experiment:<id>` — near-zero false positives after
+the fix.
+
+### R2-3 — Silent, verifier-invisible loss of ledger entries
+
+**Impact:** with the deployed topology, the Autopilot's sealed chain row is
+erased by the person's next write on a warm web instance, and nothing reports
+it. **Severity:** demonstrated **High** locally. Plausible-if-chained on the
+deploy: the edges are CODE FACT (`--min-instances 1` in DEPLOY.md:53 keeps a
+warm instance; the Autopilot is a second writer; `ensure_local` never
+re-reads GCS while a local copy exists, `storage.py:96`; upload has no
+precondition, `storage.py:130`); I did **not** run this against the deploy.
+**Status:** CONFIRMED — two propositions, scope local:
+- R2-3a *"a write from a second warm instance replaces another instance's
+  write, the survivor verifies clean, and multi-writer is the factor."*
+- R2-3b *"a web write from an instance warm across the sweep erases the
+  Autopilot's sealed chain row; a cold instance does not."*
+
+**Novelty.** R2-3a is the README's declared blind spot (README:479-485:
+"single-writer … two instances racing on one id is last-writer-wins"). It is
+included only as the control-bearing base case. **R2-3b is the finding:** the
+declared mitigation is session affinity, which pins a *browser*; the
+Autopilot is not a browser and writes every user's compass by design, so the
+"single-writer" premise of the declared limitation no longer holds in the
+shipped system.
+
+**Reproduce.**
+
+| Case | Column | Observed |
+|---|---|---|
+| R2-3a | test: instance A writes `CANARY-R23-A`, warm instance B writes `CANARY-R23-B` | A=0, B=1, linkage/integrity/content all OK |
+| R2-3a | control: same two writes through one instance | A=1, B=1, all OK |
+| R2-3b | test: sweep, then warm web instance writes | `autopilot_briefing` rows in GCS 1 → **0** |
+| R2-3b | control: sweep, then cold web instance writes | 1 → 1 |
+
+**Why this is a boundary crossing.** Invariant: *every committed `append`
+remains in the persisted chain.* A hash chain proves internal consistency of
+one branch; the overwritten branch is simply absent, so `verify_chain` and
+`verify_content` are correct and silent (falsifying the rival "the verifier
+would catch it"). Classes per `distributed-write-atomicity`: two systems (local
+SQLite, GCS object) with no shared transactional authority; per
+`concurrency-reasoning`: shared mutable state = the GCS object, concurrency
+sources = replicas + overlapping cron, check-then-act = download → mutate →
+blind upload, no fencing token.
+
+**Remediation (ranked).** 1. Structural: conditional write — keep the object
+generation read at restore, upload with `if_generation_match`, and on
+mismatch re-restore and replay the logical operation (or fail loudly); revalidate
+the local copy against the blob generation at the start of each request.
+2. Scoped: the Autopilot writes its trace to a *separate* object (it already
+keeps the briefing outside the DB) instead of appending to the user's chain.
+3. Stopgap: `--max-instances 1` and run the sweep only when the web service is
+scaled to zero — fragile, document it as such. Independently: publish each
+compass's chain head (seq + hash) to an append-only location so a dropped tail
+becomes detectable (closes the R1 "anchor" open decision too).
+**Regression assertion:** R2-3b test column must keep the row (1 → 1), forced
+deterministically as in the script (`concurrency-reasoning` Part 7: force the
+interleaving you fear). **Detection requirement:** per compass, the chain head
+seq observed by the Autopilot must never be greater than the seq of the next
+snapshot.
 
 ### R2-2 — Discriminating evidence is portable across hypotheses
 
-**Severity:** Medium **Level:** CONFIRMED BY INDUCTION **Bucket:** design vulnerability
-**Precondition:** controls the compass; at least one completed experiment.
+**Impact:** one experiment can corroborate unrelated hypotheses.
+**Severity:** demonstrated **Medium**. **Status:** CONFIRMED — *"an
+`experiment_result` preregistered for A opens the corroboration gate of an
+unrelated hypothesis B, and the borrowed link is the factor."* Scope: local.
 
-- **Code fact:** `experiment_complete` links its `experiment_result` to the
-  experiment's hypothesis; `POST /api/link` then lets the same evidence be
-  linked to *any* hypothesis. The gate does not check that the experiment was
-  about that hypothesis.
-- **Induction:** experiment on h3 closed `exito`; its evidence linked to h4
-  and h5, plus `self_report` only:
-  ```
-  PREDICTION: B y C cuentan el experiment_result del experimento de A (peso 180 c/u)
-  OBSERVED:   h3 support=180 index=375 status=activa
-  OBSERVED:   h4 support=300 index=500 status=activa
-  OBSERVED:   h5 support=300 index=500 status=activa
-  PREDICTION: B llega a 'corroborada' con 0 experimentos propios
-  OBSERVED:   h4 index=785 status=corroborada
-  ```
-- **Nuance:** linking one experiment to its *rival* as `contradicts` is
-  legitimate and desirable (that is what "discriminating" means). The defect is
-  only the `supports` direction to an unrelated hypothesis counting toward the
-  gate. Not every reuse is wrong — so the fix is narrow.
-- **Recommendation:** `experiment_result` counts toward `corroboration_requires`
-  only on the hypothesis it was preregistered for (`experiment.hypothesis_id`),
-  checked from `source = experiment:<id>`; any other link still weighs, but
-  does not open the gate.
+| Column | Links on the hypothesis | Index | Status |
+|---|---|---|---|
+| test (B) | A's `experiment_result` + 23 `self_report` | 785 | **corroborada** |
+| control (C) | 28 `self_report`, no borrowed link | 788 | activa |
 
-### R2-3 — Silent, verifier-invisible loss of ledger entries (GCS last-write-wins)
+**Invariant / class:** the gate binds to the *type* of the evidence, not to
+the relation experiment ↔ hypothesis. `evidence_link` (`domain.py:138`)
+accepts any pair. Linking A's result to A's **rival** as `contradicts` is
+legitimate; the defect is narrowly the gate opening on a hypothesis the
+experiment was not preregistered for. **Fix:** an `experiment_result` counts
+toward `corroboration_requires` only on `experiment.hypothesis_id` (read from
+`source = experiment:<id>`); elsewhere it still weighs, but does not open the
+gate. **Regression assertion:** test column ends `activa`.
 
-**Severity:** High **Level:** CONFIRMED BY INDUCTION (offline simulation);
-the deployment precondition is a CODE FACT; **not** reproduced against prod.
-**Bucket:** software vulnerability — composition break (no attacker required)
+### R2-8 — The public ADK agent service shares one compass across all visitors
 
-- **Expectation violated:** "append-only, hash-chained, tamper-evident ledger";
-  "a write that cannot be persisted is logged, never silently dropped"
-  (`storage.py` docstring).
-- **Code facts:**
-  - `storage.ensure_local` returns the local file if it exists — it **never
-    re-checks GCS** while the instance lives.
-  - `storage.snapshot` uploads the whole file unconditionally (no generation
-    precondition), so the last uploader wins.
-  - `DEPLOY.md`: `--min-instances 1 --max-instances 4 --session-affinity`
-    (affinity is best-effort). The Autopilot job downloads every DB, appends
-    an `autopilot_briefing` row, and uploads.
-- **Rival hypotheses:** (1) last-write-wins loses writes; (2) session affinity
-  + a single instance make it unreachable; (3) the verifier would flag the
-  divergence. (2) is weakened by `min-instances 1` alone: a warm instance
-  always exists and the Autopilot is a *second writer by design*.
-- **Induction:**
-  ```
-  [two web instances, same user]
-  PREDICTION: la escritura de A se pierde en silencio; la cadena sobreviviente verifica OK
-  OBSERVED:   evidencia_de_A=0 hipotesis_de_B=1 linkage=True integrity=True content=True issues=0
+**Impact:** visitor A's actions change visitor B's sealed state and "one next
+step"; A's narrative quotes are stored in a compass other visitors act on.
+**Severity:** demonstrated **Medium** (integrity across users; content
+exposure not demonstrated, see R2-8b).
+**Status:** R2-8a CONFIRMED — *"visitor A's acts change visitor B's sealed
+state and next step on a shared agent instance; the shared DB is the
+factor."* R2-8b REFUTED — *"visitor A can plant text that reaches visitor B's
+agent through `get_compass_state`."* Scope: local, tool functions called
+directly (ADK never passes a session id to them).
 
-  [warm web instance vs Autopilot sweep]
-    tras sweep, en GCS: autopilot_briefing=1
-  PREDICTION: tras la escritura web, GCS ya no contiene la fila autopilot_briefing
-  OBSERVED:   autopilot_briefing en GCS=0
-  ```
-  (3) **FALSIFIED**: the surviving chain is a valid chain — just a different
-  branch. A hash chain proves internal consistency, not that no sibling branch
-  existed; detecting a dropped tail needs an external anchor (the Round-1
-  declared limit), and here the drop happens in normal operation.
-- **Causal chain:**
-  ```
-  instance W holds local copy at seq N (never refreshed)
-  Autopilot: download seq N → append seq N+1 (autopilot_briefing) → upload
-  person writes on W: local seq N → append N+1' → snapshot uploads
-      ↓ whole-file overwrite, no precondition
-  GCS = W's branch; the Autopilot's sealed row is gone
-      ↓
-  verify_chain / verify_content on the survivor: all OK
-  ```
-  Bonus effect: W also *reads* stale state, so a person on W never sees the
-  Autopilot's work it was supposed to leave "waiting".
-- **Recommendation:** conditional upload with GCS object generations
-  (`if_generation_match`): remember the generation you downloaded, refuse to
-  overwrite a newer one, and re-download + retry the logical op (or fail loud).
-  Re-validate the local copy against the blob generation at the start of each
-  request. Separately, publish the chain head per user (e.g. a tiny
-  `head` object or the Autopilot's log) so a lost tail becomes detectable.
+| Column | B's pending evidence | B's next step | A's canaries visible to B |
+|---|---|---|---|
+| test: same `COMPASS_DB` after A extracted, added a hypothesis and preregistered | 0 → 2 | `ejecutar_experimento` **#2 = A's experiment** | no |
+| control: fresh `COMPASS_DB` | 0 | `diseñar_experimento` | no |
 
-### R2-4 — Unbounded anonymous compasses amplify into paid LLM calls
+**Why.** `_conn()` opens `COMPASS_DB` (`agent.py:49-50`), set to
+`/tmp/compass.db` for the whole process (`deploy/agent/Dockerfile:13`).
+Family: *namespace collapse* — ADK keys sessions, the tools key nothing.
+**Why R2-8b failed (assurance data):** `compass_state` exposes only
+`activa/corroborada/debilitada` hypotheses and counts; the agent has no tool
+that validates, links or activates, so an A-authored statement stays latent and
+invisible. That refutation is scoped to the *current* tool set: adding any tool
+that reads statements of latent hypotheses or evidence content would reopen it.
+**Fix:** key the agent DB by ADK `user_id`/session (ADK passes `tool_context`
+to tools that declare it) through `storage.local_path`, or point the agent at
+the API with the visitor's compass id. **Regression assertion:** the R2-8a
+test column must equal the control column.
 
-**Severity:** Medium **Level:** CONFIRMED BY INDUCTION (offline, counted calls)
-**Bucket:** software vulnerability (resource / denial-of-wallet)
-**Precondition:** anonymous HTTP access (the deploy).
+### R2-4 — Unbounded anonymous enrolment amplifies into daily LLM spend
 
-- **Code facts:** any syntactically valid id creates and seeds a DB; any write
-  (even an empty `POST /api/recompute`) snapshots it to GCS; `sweep` iterates
-  **every** blob and calls Abductor + ResourceFinder (Google Search grounding) +
-  Narrator for each. No rate limit, quota, or cap exists anywhere.
-- **Induction:**
-  ```
-  PREDICTION: cada uid creado con UN POST anónimo entra al barrido y cuesta >=1 llamada LLM
-  OBSERVED:   blobs en bucket=29 uids_flood_barridos=25/25 llamadas_backend_totales=87 (≈3.0 por brújula)
-    GET-only: 25 bases locales creadas, 3300 KiB en DATA_DIR (/tmp = RAM en Cloud Run)
-  ```
-  ≈132 KiB of seeded SQLite per GET-created id lands in instance memory.
-  Scaling these numbers to real costs is extrapolation, not measured.
-- **Recommendation:** only sweep compasses with a real person-authored write
-  (not the seed) and recent activity; cap the sweep per run; rate-limit id
-  creation per client IP; consider not persisting a compass until its first
-  non-seed write.
+**Impact:** one anonymous POST per fresh id enrols it in every future sweep.
+**Severity:** demonstrated **Medium** (resource / denial-of-wallet). Cost on
+the deploy is NOT TESTED; scaling the counted calls to money would be
+extrapolation. **Status:** CONFIRMED — *"one anonymous POST per fresh id puts
+that id into every Autopilot sweep at ≥1 LLM call each; a GET alone does
+not."* Scope: local, counted backend calls.
 
-### R2-5 — Prose guard variants (Round-1 finding A, variant analysis)
+| Column | Enrolled in sweep | Backend calls |
+|---|---|---|
+| test: 25 fresh ids × 1 `POST /api/recompute` | 25/25 | 75 (≈3 per compass) |
+| control: 25 fresh ids × 1 `GET /api/state` | 0/25 | — (but 3.3 MiB left on instance disk; `/tmp` is memory on Cloud Run) |
 
-**Severity:** Low–Med **Level:** CONFIRMED BY INDUCTION **Bucket:** limitation (declared v2 gap), now with its exact edges
-- `_PERCENT_RE = r"\d\s*(%|percent|por\s+ciento)"`:
-  ```
-  rechazada | ...97% certain.          rechazada | ...97 percent certain.
-  ACEPTADA  | ...97 per cent certain.  ACEPTADA  | ...97 pct.
-  ACEPTADA  | ...al noventa y siete por ciento.
-  ACEPTADA  | ...97％ certain.          (fullwidth percent sign)
-  ACEPTADA  | There is a 0.97 probability ...
-  ACEPTADA  | Your design index is 950/1000 — essentially certain.  (sealed value differs)
-  ```
-- **Recommendation:** NFKC-normalize before matching; extend to `per cent`,
-  `pct`, word-number + `por ciento`; reject `probabilit*`; and the decisive one:
-  any `N/1000` or bare integer in 0–1000 in the prose must equal a value in the
-  summary handed to the narrator (that check is deterministic and cheap).
+**Novelty:** DEPLOY.md:194 already warns that request-path Vertex calls need
+auth or rate limiting. New here: the Autopilot turns a single request into a
+**recurring, unattended** cost per id, with no expiry. **Fix (ranked):** sweep
+only compasses with a non-seed, person-authored write and recent activity; cap
+compasses per sweep; persist a compass only after its first non-seed write;
+rate-limit id creation. **Detection:** count of distinct new ids per source
+per hour; sweep size growth day over day.
 
-### R2-6 — Anonymous writes land on a showcase named after a real person
+### R2-6 — Anonymous writes on a showcase presented under a real person's name
 
-**Severity:** Low–Med **Level:** CONFIRMED BY INDUCTION **Bucket:** design / hygiene
-- **Code fact:** `get_uid` defaults a missing header to `demo`; every write
-  endpoint accepts it; `/health` reports the demo chain.
-- **Induction:**
-  ```
-  PREDICTION: un request sin X-Compass-User borra evidencia de la vitrina
-  OBSERVED:   http=200 evidencia#1 deleted=1
-  ```
-- **Why it matters beyond vandalism:** the seed person is "Anna (user zero)".
-  With R2-1, an anonymous visitor can seal `corroborada` claims (or tombstone
-  everything) on the profile every judge lands on, and it persists to GCS.
-- **Recommendation:** make `demo` read-only at the API (or copy-on-write into a
-  fresh id on first write); require the header on writes.
+**Status:** CONFIRMED — *"an anonymous request without the header mutates the
+shared showcase; the header is the only factor."* Test (no header): demo
+evidence #1 tombstoned, HTTP 200. Control (header `u-r26ctrl00001`, identical
+path and body): demo evidence #2 untouched. Showcase person: "Anna (user
+zero)". `get_uid` defaults to `demo` (`api.py:82`). Combined with R2-1, an
+anonymous visitor can seal corroborated — or damaging — claims on the profile
+every judge lands on. **Severity:** demonstrated Low–Medium. **Fix:** `demo`
+read-only at the API (or copy-on-write to a fresh id on first write); require
+the header on every write route. **Regression assertion:** test column → 403,
+demo unchanged.
 
-### R2-7 — Preregistration has no time separation
+### R2-5 — The percentage guard accepts six figure-claims (variant of R1-A)
 
-**Severity:** Low **Level:** CODE FACT + trivial induction **Bucket:** limitation
-- `prereg=…39.861287`, `completed=…39.866944` — accepted. The schema enforces
-  that a failure criterion *exists*, not that it was written *before* running.
-  A person can write the criteria after the fact and close the experiment
-  instantly. No fully deterministic fix (the system cannot observe the real
-  world), but a minimum interval between `preregistered_at` and
-  `completed_at`, or surfacing that interval in the UI, makes it visible —
-  same honest mitigation as Round-1 C.
+**Status:** CONFIRMED — *"the R1 guard rejects only digit + `%` / `percent` /
+`por ciento`; six other figure-claims pass."* Controls (`97%`, `97 percent`)
+rejected; variants accepted: `97 per cent`, `97 pct`, `noventa y siete por
+ciento`, `97％` (fullwidth), `0.97 probability`, `950/1000`.
+`_PERCENT_RE` at `llm.py:239`. README:421 says it "rejects any percentage" —
+that claim needs narrowing now. **Severity:** Low–Medium (declared class).
+**Fix (ranked):** 1. any integer 0–1000 or `N/1000` in the prose must equal a
+value in the summary handed to the narrator (deterministic, closes the
+"number contradicting the seal" class, not just the `%` spelling);
+2. NFKC-normalize, add `per cent`, `pct`, word numbers, `probabilit*`.
+
+### R2-7 — Preregistration has no temporal separation
+
+**Status:** CONFIRMED — *"an experiment can be preregistered and closed within
+one second"* (6.3 ms, HTTP 200). No control: no code path could reject it
+(CODE FACT, `domain.py:291`). **Severity:** Low — same class as R1-C (the
+system cannot observe the real world). **Mitigation:** minimum interval, or
+surface `completed_at − preregistered_at` next to every corroboration.
 
 ---
 
-## Discarded / falsified vectors
+## Authorization matrix (`authorization-surface-mapping`)
 
-| Vector | Result | Why |
-|--------|--------|-----|
-| Path traversal via `X-Compass-User` | **FALSIFIED** | `../etc`, `a/b`, 65 chars, `ok%2F..` → 400. |
-| Trailing-newline uid (`demo\n`) | **FALSIFIED over HTTP**; CODE FACT remains | `re.match` with `$` accepts `"demo\n"` and creates a separate `compass_demo\n.db` when called in-process, but h11 strips it before the app sees it. Use `fullmatch`/`\Z` as hygiene. |
-| Brute-forcing another person's compass id | **Not feasible** | ≈71 bits from `crypto.getRandomValues`. |
-| Unvalidated evidence moves an index | **FALSIFIED** | 10 linked `validated=false` → `index=0 latente`. |
-| Autopilot moves a sealed value | **FALSIFIED** | No domain write lever; guard never tripped across all runs. |
-| Linking the same evidence twice to inflate | **FALSIFIED** | PK `(hypothesis_id, evidence_id)` rejects it — but as an unhandled `IntegrityError` → HTTP 500 (hygiene: map to 400). |
+| Actor | Resource | Action | Expected | Observed | Control |
+|---|---|---|---|---|---|
+| no header | `demo` compass | any write | denied | allowed | **FAIL** (R2-6) |
+| id X | own compass | all | allowed | allowed | PASS |
+| id Y | X's evidence id | forget / list | no effect on X | hits Y's own row; canary not visible | **PASS** (AUTHZ-1 REFUTED) |
+| any holder | evidence type label | create `outcome_external` / `experiment_result` | restricted | allowed | **FAIL** (R2-1) |
+| any holder | another hypothesis | link a foreign `experiment_result` (gate) | no gate effect | opens gate | **FAIL** (R2-2) |
+| LLM extractor | validated evidence | create | denied | `validated=0` only; ×10 linked → index 0 | PASS (AUTHZ-2) |
+| agent visitor A | visitor B's compass | write | denied | allowed (shared DB) | **FAIL** (R2-8a) |
+| agent visitor A | visitor B's agent context | inject text | denied | not reachable with current tools | PASS (R2-8b) |
+| Autopilot | sealed indices | write | denied | guard never tripped | PASS |
+| Autopilot | user's chain | append row | allowed (by design) | allowed — and lost later | WARN (R2-3b) |
+| traversal ids | filesystem | open | denied | 400 for `../etc`, `a/b`, 65 chars, `%2F` | PASS |
 
-## Hygiene noted (not exploited)
+**Cells not tested, and why:** ADK `adk web` endpoints themselves (session
+listing, artifact service) — not part of this repo and would require the live
+service; the frontend; GCS IAM; Vertex quota behavior; the `demo\n` uid (the
+regex at `storage.py` uses `re.match` + `$` and accepts a trailing newline
+in-process, but h11 strips it before the app — REFUTED over HTTP, keep as
+hygiene: use `fullmatch`).
 
-- No unlink endpoint: a mistaken link (including the wrong direction) is
-  permanent short of tombstoning the evidence.
-- Request bodies (`content`, `narrative`, `statement`) have no size cap.
-- CORS `*` (no credentials, so low impact; ids travel in a header).
-- Environment note: 2 tests in `test_hackathon_layer.py` and the ADK test
-  modules need `google-genai` / `google-adk`; with only fastapi installed the
-  rest of the suite is green (177 passed).
+## Discarded / refuted vectors
 
-## Recommendations (out of scope of this change — record only)
+| Vector | Status | Evidence |
+|---|---|---|
+| IDOR across compass ids | REFUTED | AUTHZ-1: per-user DB; Y's request resolves in Y's DB. |
+| Unvalidated evidence moves an index | REFUTED | AUTHZ-2: index 0. |
+| Stored cross-session prompt injection via agent state | REFUTED (current tool set) | R2-8b. |
+| Path traversal via id | REFUTED | 400 on four forms. |
+| Autopilot moves a sealed value | REFUTED | guard never tripped across all runs. |
+| Brute-forcing a compass id | not feasible | ≈71 bits. |
+| Duplicate link inflates | REFUTED | PK rejects it — as an unhandled `IntegrityError` → HTTP 500 (hygiene: map to 400). |
 
-Priority by severity × cost: R2-3 (generation-conditional upload) and R2-1
-(unforgeable discriminating types) first; R2-6 (read-only demo) is a few
-lines; then R2-2, R2-4, R2-5, R2-7. Each fix should land with a regression
-test that fails first on `85d8d2e`, as in Round 1.
+## Hygiene (not findings)
+
+No unlink endpoint (a wrong link is permanent short of tombstoning); no body
+size caps; CORS `*` (no credentials, low impact). Test environment: with only
+fastapi installed, 177 tests pass; 2 in `test_hackathon_layer.py` and the ADK
+modules need `google-genai` / `google-adk`.
+
+## Custody (`finding-custody`)
+
+- **This repository is public** and the deployment is live and
+  unauthenticated. Pushing this report discloses the *mechanism* layer of
+  R2-1, R2-4 and R2-6 against the live service before any fix ships. The
+  owner of the system and of the decision is the repository owner; the
+  options are recorded, not taken: keep the report on a branch until the
+  fixes land, move it to a private location, or accept publication (the demo
+  data is synthetic). **Revisit trigger:** the first fix commit — patches
+  disclose the class on their own (`finding-custody` Part 2).
+- PoC inventory: `tools/redteam_round2.py` (this repo); the session transcript
+  of the assistant that ran it. No live-system data was touched; all state is
+  in a temp dir the script prints and that is safe to delete.
+
+## Recommendations (record only — nothing was changed in `src/`)
+
+Order by demonstrated severity × cost: **R2-3** (conditional upload / move the
+Autopilot trace out of the user chain) and **R2-1** (provenance by
+construction) first; **R2-6** is a few lines; then R2-8, R2-2, R2-4, R2-5,
+R2-7. Each fix should land with the regression assertion listed under its
+finding, red first on `85d8d2e`, and be verified against the class, not only
+against the script's inputs (`remediation-driven-reporting` Part 5).

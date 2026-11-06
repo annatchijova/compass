@@ -108,7 +108,8 @@ def test_api_full_cycle_smoke(tmp_path, monkeypatch):
     importlib.reload(api_module)
     from fastapi.testclient import TestClient
 
-    with TestClient(api_module.app) as c:
+    with TestClient(api_module.app,
+                    headers={"X-Compass-User": "t-own-compass"}) as c:
         assert c.get("/health").json()["status"] == "ok"
         st = c.get("/api/state").json()
         assert st["state"]["hypotheses"], "el seed debe poblar hipótesis"

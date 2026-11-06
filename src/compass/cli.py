@@ -48,7 +48,7 @@ def cmd_evidence_add(args):
         content = json.loads(args.contenido)
     except json.JSONDecodeError:
         content = {"texto": args.contenido}
-    eid = domain.evidence_add(
+    eid = domain.evidence_add_by_person(
         conn, evidence_type=args.tipo, source=args.fuente,
         content=content, validated=not args.sin_validar,
     )

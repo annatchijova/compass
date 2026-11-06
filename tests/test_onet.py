@@ -71,7 +71,8 @@ def test_api_onet_adopt_cycle(tmp_path, monkeypatch):
     importlib.reload(api_module)
     from fastapi.testclient import TestClient
 
-    with TestClient(api_module.app) as c:
+    with TestClient(api_module.app,
+                    headers={"X-Compass-User": "t-own-compass"}) as c:
         occ = c.get("/api/onet/occupations", params={"lang": "es"}).json()
         assert len(occ["occupations"]) == len(onet.OCCUPATIONS)
         code = occ["occupations"][0]["code"]

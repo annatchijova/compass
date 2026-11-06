@@ -167,7 +167,8 @@ def test_api_trajectories_cycle(tmp_path, monkeypatch):
     importlib.reload(api_module)
     from fastapi.testclient import TestClient
 
-    with TestClient(api_module.app) as c:  # seeds demo (h1 met, h2 against)
+    with TestClient(api_module.app,
+                    headers={"X-Compass-User": "t-own-compass"}) as c:  # seeds demo (h1 met, h2 against)
         tid = c.post("/api/trajectories", json={"name": "Systems architect"}
                      ).json()["trajectory_id"]
         c.post(f"/api/trajectories/{tid}/requirements",

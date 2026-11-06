@@ -67,11 +67,26 @@ def _resolve_backend(requested: Optional[str]):
 def _db(uid: str, write: bool = False) -> Iterator["object"]:
     """Abre la base AISLADA del usuario (restaurándola de GCS si hace falta),
     la siembra si está vacía, y —si hubo escritura— la snapshotea a GCS al
-    salir. El snapshot ocurre fuera de la transacción, después del commit."""
+    salir. El snapshot ocurre fuera de la transacción, después del commit.
+
+    La vitrina `demo` es de SOLO LECTURA (Red Team Round 2, R2-6): es lo que
+    ve cualquiera que abre la URL, y se presenta con el nombre de una persona
+    real. Dos capas: una ruta de escritura recibe 403 antes de abrir nada, y
+    la conexión de lectura queda en `query_only`, así una escritura que una
+    ruta no declaró también falla cerrada."""
+    is_showcase = uid == storage.DEMO_UID
+    if write and is_showcase:
+        raise HTTPException(
+            status_code=403,
+            detail="la vitrina 'demo' es de solo lectura: mandá tu propio "
+                   "compass id en X-Compass-User para escribir",
+        )
     path = storage.ensure_local(uid)
     conn = open_db(path)
     try:
         seed_demo.seed(conn)  # idempotente: no hace nada si ya hay persona
+        if is_showcase:
+            conn.execute("PRAGMA query_only = ON")
         yield conn
     finally:
         conn.close()
@@ -232,7 +247,7 @@ class EvidenceIn(BaseModel):
 def add_evidence(body: EvidenceIn, uid: str = Depends(get_uid)) -> dict:
     with _db(uid, write=True) as conn:
         try:
-            eid = domain.evidence_add(
+            eid = domain.evidence_add_by_person(
                 conn, evidence_type=body.evidence_type, source=body.source,
                 content=body.content, validated=body.validated,
             )

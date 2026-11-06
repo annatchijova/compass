@@ -203,7 +203,8 @@ def test_c_state_surfaces_unlinked_coverage(tmp_path, monkeypatch):
     importlib.reload(api_module)
     from fastapi.testclient import TestClient
 
-    with TestClient(api_module.app) as c:
+    with TestClient(api_module.app,
+                    headers={"X-Compass-User": "t-own-compass"}) as c:
         before = c.get("/api/state").json()
         base = before["coverage"]["validated_unlinked"]
         idx_before = {h["id"]: h["index"] for h in before["state"]["hypotheses"]}

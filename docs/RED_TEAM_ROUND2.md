@@ -82,12 +82,12 @@ able to audit.
 
 | ID | Impact (one sentence) | Demonstrated severity | Status | Novelty |
 |---|---|---|---|---|
-| R2-1 | Anyone who controls a compass can make a hypothesis **"corroborated" with zero experiments** by labelling their own entries `outcome_external`. | High | CONFIRMED | new; contradicts README:404 |
+| R2-1 | Anyone who controls a compass can make a hypothesis **"corroborated" with zero experiments** by labelling their own entries `outcome_external`. | High | CONFIRMED → **FIXED** | new; contradicts README:404 |
 | R2-3 | The Autopilot's sealed chain row (and any write from another instance) is **silently erased** by the next web write, and every verifier still reports OK. | High | CONFIRMED (local); deploy reach = inference from CODE FACT | two-instance race is a **declared** blind spot; the Autopilot breaking the single-writer premise is new |
 | R2-2 | One completed experiment can corroborate **any number of unrelated hypotheses**. | Medium | CONFIRMED | new |
 | R2-8 | On the public ADK agent service, **every visitor shares one compass**: visitor A's actions change visitor B's state and next step. | Medium | CONFIRMED (local); cross-session prompt injection via state REFUTED | new; DEPLOY.md covers cross-*instance*, not cross-*session* |
 | R2-4 | An anonymous client can enrol unbounded compasses, each costing ≈3 billed LLM calls **every day** via the Autopilot. | Medium | CONFIRMED (local, counted calls) | partly declared (DEPLOY.md:194, per-request only) |
-| R2-6 | A request without a header can rewrite the shared showcase presented as **"Anna (user zero)"**. | Low–Medium | CONFIRMED | new |
+| R2-6 | A request without a header can rewrite the shared showcase presented as **"Anna (user zero)"**. | Low–Medium | CONFIRMED → **FIXED** | new |
 | R2-5 | `97 per cent`, `97％`, `noventa y siete por ciento`, `0.97 probability`, `950/1000` pass the guard that README says rejects "any percentage". | Low–Medium | CONFIRMED | variant of declared R1-A; contradicts README:421 |
 | R2-7 | An experiment can be preregistered and closed 6 ms later, so a post-hoc experiment looks preregistered. | Low | CONFIRMED | new (declared limitation class, R1-C) |
 
@@ -368,11 +368,39 @@ modules need `google-genai` / `google-adk`.
   of the assistant that ran it. No live-system data was touched; all state is
   in a temp dir the script prints and that is safe to delete.
 
-## Recommendations (record only — nothing was changed in `src/`)
+## Remediation status
 
-Order by demonstrated severity × cost: **R2-3** (conditional upload / move the
-Autopilot trace out of the user chain) and **R2-1** (provenance by
-construction) first; **R2-6** is a few lines; then R2-8, R2-2, R2-4, R2-5,
+Applied after the audit, on the same branch. Each fix: a regression test that
+**failed first** on the unfixed source (verified by running
+`tests/test_redteam_round2_fixes.py` with `src/` stashed: 6 failed — exactly
+the attack tests — and 5 passed — the controls), then green with the fix.
+
+| ID | Status | What changed | Control that must still pass |
+|---|---|---|---|
+| R2-1 | **FIXED** | New `domain.evidence_add_by_person`: rejects every type in the *active* engine config's `corroboration_requires` (today `experiment_result`, `outcome_external`) with `DomainError` → HTTP 400. Used by `POST /api/evidence` and the CLI. `experiment_complete` and the seed keep the internal `evidence_add`. | A real preregistered experiment completed `exito` still reaches `corroborada`; same index from volume alone stays `activa`; other types still accepted. |
+| R2-6 | **FIXED** | `api._db`: a write route on `demo` → 403 before opening anything; the `demo` read connection is opened `PRAGMA query_only = ON`, so an undeclared write path also fails closed. | Own compass still writable with the identical request; showcase still readable (`/api/state`, `/api/chain`, `/health`). |
+
+Reproducer on the fixed code: `R2-1 REFUTED` (test column `index=0 latente`,
+the gate-type writes are refused) and `R2-6 REFUTED` (`http=403`, demo
+untouched); every other row unchanged.
+
+**Not closed by these fixes — verified against the class, not the payload**
+(`remediation-driven-reporting` Part 5): **R2-2 is still CONFIRMED** on the
+fixed code. It is the sibling of R2-1 (the gate binds to the evidence *type*,
+not to the experiment ↔ hypothesis relation) through a different path —
+linking a legitimately created `experiment_result` — so closing R2-1 did not
+close the class. `outcome_external` now has no client path at all; giving it
+one with recorded provenance is an open decision.
+
+Side effect on existing tests: eight API tests wrote to `demo` without a
+header. They now use their own compass id (`t-own-compass`), which is seeded
+with the identical scenario, so they assert the same behavior.
+
+## Recommendations (record only — remaining findings)
+
+R2-1 and R2-6 are fixed (see Remediation status). Remaining, by demonstrated
+severity × cost: **R2-3** (conditional upload / move the Autopilot trace out
+of the user chain) first; then R2-8, R2-2 (same class as R2-1), R2-4, R2-5,
 R2-7. Each fix should land with the regression assertion listed under its
 finding, red first on `85d8d2e`, and be verified against the class, not only
 against the script's inputs (`remediation-driven-reporting` Part 5).

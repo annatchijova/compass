@@ -138,7 +138,8 @@ def api_client(tmp_path, monkeypatch):
     from compass import api as api_module
     importlib.reload(api_module)
     from fastapi.testclient import TestClient
-    with TestClient(api_module.app) as c:
+    with TestClient(api_module.app,
+                    headers={"X-Compass-User": "t-own-compass"}) as c:
         yield c
 
 

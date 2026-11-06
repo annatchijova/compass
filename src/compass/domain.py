@@ -89,6 +89,48 @@ def evidence_add(
     return eid
 
 
+def _gate_types(conn: sqlite3.Connection) -> set[str]:
+    """Tipos de evidencia que abren la corroboración bajo la config ACTIVA
+    del engine (o la v1 por defecto si todavía no hay ninguna)."""
+    from .engine import DEFAULT_CONFIG_V1, ENGINE_VERSION_V1
+
+    row = conn.execute(
+        "SELECT config FROM engine_config WHERE engine_version = ?",
+        (ENGINE_VERSION_V1,),
+    ).fetchone()
+    cfg = json.loads(row["config"]) if row is not None else DEFAULT_CONFIG_V1
+    return set(cfg["corroboration_requires"])
+
+
+def evidence_add_by_person(
+    conn: sqlite3.Connection,
+    *,
+    evidence_type: str,
+    source: str,
+    content: dict,
+    validated: bool,
+) -> int:
+    """Evidencia que entra por un cliente (API, CLI): la persona o quien tenga
+    su compass id.
+
+    Los tipos que abren la puerta de corroboración NO se aceptan acá: lo que
+    los hace discriminantes es su procedencia, y una etiqueta escrita por el
+    cliente no es procedencia (Red Team Round 2, R2-1). `experiment_result`
+    nace solo de `experiment_complete`; `outcome_external` todavía no tiene un
+    camino con procedencia registrada.
+    """
+    gate = _gate_types(conn)
+    if evidence_type in gate:
+        raise DomainError(
+            f"evidence_type {evidence_type!r} no se puede declarar a mano: abre "
+            f"la corroboración ({sorted(gate)}) y su procedencia no es "
+            "verificable desde acá; un experiment_result nace al completar un "
+            "experimento preregistrado"
+        )
+    return evidence_add(conn, evidence_type=evidence_type, source=source,
+                        content=content, validated=validated)
+
+
 def evidence_validate(conn: sqlite3.Connection, evidence_id: int) -> None:
     with atomic(conn):
         row = conn.execute(

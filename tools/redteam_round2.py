@@ -98,11 +98,16 @@ def hyp(uid, s): return client.post("/api/hypotheses", json={"statement": s}, he
 
 
 def ev(uid, etype, text, validated=True):
-    return client.post("/api/evidence", json={"evidence_type": etype, "source": "self",
-                       "content": {"t": text}, "validated": validated}, headers=H(uid)).json()["evidence_id"]
+    """evidence_id, or None when the API refuses the write (after the R2-1 fix
+    a self-declared gate type gets 400: that refusal IS the result)."""
+    r = client.post("/api/evidence", json={"evidence_type": etype, "source": "self",
+                    "content": {"t": text}, "validated": validated}, headers=H(uid))
+    return r.json()["evidence_id"] if r.status_code == 200 else None
 
 
 def link(uid, h, e, d="supports"):
+    if e is None:
+        return None
     return client.post("/api/link", json={"hypothesis_id": h, "evidence_id": e, "direction": d}, headers=H(uid))
 
 
@@ -368,7 +373,7 @@ print(f"other id x A's evidence x list       -> canary visible to B={leak}")
 oracle("AUTHZ-1", "a different compass id can reach another compass's rows by id (IDOR)",
        (not alive) or leak)
 hu = hyp("u-authzU00001", "u")
-for i in range(10): link("u-authzU00001", hu, ev("u-authzU00001", "outcome_external", f"p{i}", validated=False))
+for i in range(10): link("u-authzU00001", hu, ev("u-authzU00001", "behavioral", f"p{i}", validated=False))
 ru = result(client.post("/api/recompute", headers=H("u-authzU00001")).json(), hu)
 print(f"pending (unvalidated) x10 linked      -> index={ru['index']} status={ru['status']}")
 oracle("AUTHZ-2", "unvalidated evidence moves a sealed index", ru["index"] != 0)
